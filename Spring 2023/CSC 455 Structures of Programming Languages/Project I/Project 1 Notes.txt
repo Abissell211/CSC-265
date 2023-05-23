@@ -1,0 +1,4 @@
+1. See video lesson
+2. Two programs one using subscripting, the other using pointers.
+3. Attribute Grammer (similar to the bonus)
+4 & 5. Scoping
