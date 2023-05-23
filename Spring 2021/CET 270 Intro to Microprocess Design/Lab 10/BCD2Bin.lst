@@ -1,0 +1,425 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 1
+
+
+                             1          TTL     "Lab 10: BCD to Binary Conversion"
+                             2  ****************************************************************************
+                             3  * 1) HEADER block - overall info about the program
+                             4  
+                             5  * Project name:   BCD2Bin
+                             6  * Author(s):      Andrew Bissell
+                             7  * Date:           04/26/2021
+                             8  * Description:
+                             9  *   This program takes a user input of five decimal numbers and converts them
+                            10  *    to an equivalent binary number. The program will output the numbers in HEX
+                            11  *    and binary back to the user in this format: 
+                            12  *                       "Decimal" = "$HEX" = "%Binary"
+                            13  ****************************************************************************
+                            14  * 2) EQUATE section - define symbolic names for various values             *
+                            15  ****************************************************************************
+                            16  ;    a) constants...
+    =000D                   17  CR       EQU     $0D     ;ASCII Carriage Return
+    =0004                   18  EOT      EQU     $04     ;ASCII for End Of Transmission
+    =001B                   19  ESC      EQU     $1B     ;ASCII for Escap
+    =0008                   20  BACKSPA  EQU     $08     ;ASCII for Delete
+    =0007                   21  BELL     EQU     $07     ;ASCII code to ring ouput Bell. (For ERRORS in input)
+                            22  
+                            23  * BUFFALO utility routine entry points
+    =FFB8                   24  OUTA     EQU     $FFB8   ;BUFFALO rtn to output char in acc A
+    =FFC7                   25  OUTSTRG  EQU     $FFC7   ;BUFFALO OUTSTRING Subroutine
+    =FFCD                   26  INCHAR   EQU     $FFCD   ;BUFFALO INCHAR Subroutine
+                            27  
+                            28  ;    b) memory map equates
+    =0000                   29  RWDATA   EQU     $0000   ;Where to place read/write(RAM) variables
+    =2000                   30  CODE     EQU     $2000   ;Where to start placing program object code
+                            31                          ;32K RAM (U5) on CME11E9-EVBU board
+                            32  ****************************************************************************
+                            33  * 3) CODE section - actual program code                                    *
+                            34  ****************************************************************************
+2000                        35           ORG     CODE     ; Tell assembler where to begin object code.
+                            36  
+    =2000                   37  Main     EQU     *        ; Define label for start of Main program.
+                            38  
+2000 CE 21 44          3~   39           LDX     #Greet  
+2003 BD FF C7          6~   40           JSR     OUTSTRG  ; Displays the welcome message.
+                            41          
+2006 CE 21 76          3~   42  InputSt  LDX     #Prompt
+2009 BD FF C7          6~   43           JSR     OUTSTRG  ; Displays the prompt message.
+                            44          
+200C CE 00 00          3~   45           LDX     #DecVal  ; Loads the first location of the user input decimal data.
+200F BD 20 3C          6~   46           JSR     INSERDEC ; Jumps to the insert decimal subroutine.
+                            47          
+2012 81 1B             2~   48           CMPA    #ESC     ; Checks if the user wants to quit program.
+2014 27 15             3~   49           BEQ     MainESC  ; If the usede pressed escape quit program.
+                            50           
+2016 CE 00 00          3~   51           LDX     #DecVal  ; Loads the first location of the user input decimal data.
+2019 BD 20 70          6~   52           JSR     ChkDec   ; Jumps to the check decimal number subroutine.
+                            53           
+201C C1 FF             2~   54           CMPB    #$FF     ; Check if error code from check decimal subroutine is found.
+201E 27 13             3~   55           BEQ     ErrOv    ; If it is move to error message.
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 2
+
+
+                            56          
+2020 CE 00 00          3~   57           LDX     #DecVal  ; Loads the first location of the user input decimal data.
+2023 BD 20 A6          6~   58           JSR     BCD2Hex  ; Jumps to the BCD to Binary converter. 
+                            59  
+2026 BD 20 C5          6~   60           JSR     Output   ; Else, jump to the output subroutine.
+                            61           
+2029 20 DB             3~   62           BRA     InputSt
+                            63           
+202B CE 21 DD          3~   64  MainESC  LDX     #QuitMess
+202E BD FF C7          6~   65           JSR     OUTSTRG  ; Display the Quit message.
+2031 20 08             3~   66           BRA     Quit     ; Move to quit program.
+                            67           
+2033 CE 21 A9          3~   68  ErrOv    LDX     #ErrMsg  
+2036 BD FF C7          6~   69           JSR     OUTSTRG  ; Display Error message.
+2039 20 CB             3~   70           BRA     InputSt  ; Move back to input statement.
+                            71          
+203B 3F               14~   72  Quit     SWI              ; Return to BUFFALO monitor on HC11EVB.        
+                            73  ****************************************************************************
+                            74  *  Insert Decimal Subroutine -INSERDEC-                                  *
+                            75  ****************************************************************************
+                            76  * This Subroutine will take up to five user inputed numbers and save them to five
+                            77  *  memory locations in the order they are inputted.
+                            78  * Parameters: A memory loaction of 5 has to be set before hand.
+                            79  *             Index X and ACCA used in subroutine.
+                            80  *             No Error code is sent back to main if error occurs
+                            81  ****************************************************************************
+    =203C                   82  INSERDEC EQU     *        ; Start of subroutine.
+                            83  
+203C 8C 00 05          4~   84  Start    CPX     #5       ; Check if the user input is equal to 5 or memory is full.
+203F 27 2E             3~   85           BEQ     Fin      ; If it is end subroutine.
+                            86  
+2041 BD FF CD          6~   87           JSR     INCHAR   ; Store the CHAR in ACCA
+                            88           
+2044 81 1B             2~   89           CMPA    #ESC     ; Checks to see if the user pressed escape (quit program).
+2046 27 27             3~   90           BEQ     Fin      ; If the user pressed escape move to escape to quit program.
+                            91           
+2048 81 08             2~   92           CMPA    #BACKSPA ; Check if user deleted a number.
+204A 27 16             3~   93           BEQ     Delete   ; If the user deleted move to delete.
+                            94           
+204C 81 2F             2~   95           CMPA    #$2F     ; Check if the user input is not a number.
+204E 23 04             3~   96           BLS     ErrorInp ; If it is, move to error input. 
+                            97           
+2050 81 39             2~   98           CMPA    #$39     ; Check if the user input is a number.
+2052 23 07             3~   99           BLS     GdInp    ; If it is, move to good input.
+                           100  
+2054 86 07             2~  101  ErrorInp LDAA    #BELL    ; Ring the bell.
+2056 BD FF B8          6~  102           JSR     OUTA    
+2059 20 E1             3~  103           BRA     Start    ; Return to start of subroutine.
+                           104                  
+205B 84 0F             2~  105  GdInp    ANDA    #$0F     ; Remove the first byte.
+205D A7 00             4~  106           STAA    0,X      ; Store the CHAR in the username memory found with index x.
+205F 08                3~  107           INX              ; Increment to the next memory location.
+2060 20 DA             3~  108           BRA     Start    ; Restart for the next user input.
+                           109  
+2062 8C 00 00          4~  110  Delete   CPX     #0       ; Make sure X isn't pointing at the first memory location.
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 3
+
+
+2065 27 D5             3~  111           BEQ     Start    ; If X is at the first location just restart the subroutine.
+                           112                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                           113                                                                                                                                                                                                                                                                                                                                                                                                                
+2067 86 07             2~  114           LDAA    #BELL    ; Else, ring the bell.
+2069 BD FF B8          6~  115           JSR     OUTA    
+206C 09                3~  116           DEX              ; Decrement X to delete that memory location.
+206D 20 CD             3~  117           BRA     Start    ; Return to start of subroutine.
+                           118           
+206F 39                5~  119  Fin      RTS              ; Return from subroutine.
+                           120  ****************************************************************************
+                           121  *  Check Decimal Input for Overflow -ChkDec-                               *
+                           122  ****************************************************************************
+                           123  * This Subroutine will check the inputted 5 decimal number by the user and check
+                           124  *  to see if it overflows the two byte HEX number.
+                           125  * Parameters: Must have a 5 input data variable (DecVal).
+                           126  *             Uses Index X, ACCA and ACCB.
+                           127  *             ACCB will output an error code ($FF) if overflow is found.
+                           128  ****************************************************************************
+    =2070                  129  ChkDec   EQU     *       
+                           130           
+2070 5F                2~  131           CLRB             ; Reset ACCB
+                           132           
+2071 A6 00             4~  133  ChkDig1  LDAA    0,X      ; Load ACCA with first memory location.
+2073 81 06             2~  134           CMPA    #$06     ; Check to see if first digit is greater than a 6.
+2075 2E 2C             3~  135           BGT     BadInp   ; If it is, move to bad input.
+                           136           
+2077 81 06             2~  137           CMPA    #$06     ; Else, check to see if the input is a 6.
+2079 26 2A             3~  138           BNE     QuitChk  ; If it isn't, done checking number.
+207B 08                3~  139           INX              ; Step to next digit.
+                           140                  
+207C A6 00             4~  141           LDAA    0,X      ; Load ACCA with second memory location.
+207E 81 05             2~  142           CMPA    #$05     ; Check to see if second digit is greater than a 5.
+2080 2E 21             3~  143           BGT     BadInp   ; If it is, move to bad input.
+                           144           
+2082 81 05             2~  145           CMPA    #$05     ; Else, check to see if the input is a 5.
+2084 26 1F             3~  146           BNE     QuitChk  ; If it isn't, done checking number.
+2086 08                3~  147           INX              ; Step to next digit.
+                           148           
+2087 A6 00             4~  149           LDAA    0,X      ; Load ACCA with third memory location.
+2089 81 05             2~  150           CMPA    #$05     ; Check to see if third digit is greater than a 5.
+208B 2E 16             3~  151           BGT     BadInp   ; If it is, move to bad input.
+                           152           
+208D 81 05             2~  153           CMPA    #$05     ; Else, check to see if the input is a 5.
+208F 26 14             3~  154           BNE     QuitChk  ; If it isn't, done checking.
+2091 08                3~  155           INX              ; Step to next digit.
+                           156           
+2092 A6 00             4~  157           LDAA    0,X      ; Load ACCA with first memory location.
+2094 81 03             2~  158           CMPA    #$03     ; Check to see if fourth digit is greater than a 3.
+2096 2E 0B             3~  159           BGT     BadInp   ; If it is, move to bad input.
+                           160           
+2098 81 03             2~  161           CMPA    #$03     ; Else, check to see if the input is a 3.
+209A 26 09             3~  162           BNE     QuitChk  ; If it isn't, done checking number.
+209C 08                3~  163           INX              ; Step to next digit.
+                           164           
+209D A6 00             4~  165           LDAA    0,X      ; Load ACCA with fifth memory location.
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 4
+
+
+209F 81 05             2~  166           CMPA    #$05     ; Check to see if fifth digit is less than or equal to 5.
+20A1 23 02             3~  167           BLS     QuitChk  ; If it is, done checking number.
+                           168                    
+20A3 C6 FF             2~  169  BadInp   LDAB    #$FF     ; Load ACCB with the error code.
+                           170           
+20A5 39                5~  171  QuitChk  RTS              ; Return back from subroutine.
+                           172  ****************************************************************************
+                           173  *  BCD to Binary Subroutine -BCD2Hex-                                      *
+                           174  ****************************************************************************
+                           175  * This Subroutine will take a user data input of 5 and convert it to a Hex number
+                           176  *  that will be found in ACCD and then transfered to the variable DVal.
+                           177  * Parameters: A memory loaction of 5 has to be set before hand.
+                           178  *             The variable DVal must be set.
+                           179  *             Uses ACCA, ACCB, Index X, and Index Y in processing.
+                           180  *             Index X will return error code to not give false errors if the user input
+                           181  *              equals the error code.
+                           182  ****************************************************************************
+    =20A6                  183  BCD2Hex  EQU     *       
+                           184  
+20A6 4F                2~  185           CLRA             ; Clear ACCA
+20A7 5F                2~  186           CLRB             ; Clear ACCB, ACCD is now clear
+                           187  
+20A8 8C 00 05          4~  188  ConLoop  CPX     #5       ; Check if the loop has processed five times.
+20AB 27 14             3~  189           BEQ     ConFin   ; If it has move to store ACCD in DVal and quit.
+                           190           
+20AD FD 00 05          5~  191           STD     DVal     ; Store ACCD to DVal to add later.
+20B0 05                3~  192           LSLD             ; Multiply by 2.
+20B1 05                3~  193           LSLD             ;             4.
+20B2 F3 00 05          6~  194           ADDD    DVal     ; Add the DVal to ACCD to make the multiplication by 5.
+20B5 05                3~  195           LSLD             ; Multiply by 10.
+                           196           
+20B6 18 8F             4~  197           XGDY             ; Exchange ACCD and Index Y.
+                           198           
+20B8 E6 00             4~  199           LDAB    0,X      ; Load ACCB with the current data location.
+20BA 18 3A             4~  200           ABY              ; Add that data to Index Y.
+                           201           
+20BC 18 8F             4~  202           XGDY             ; Else, Exchange ACCD and Index Y.
+20BE 08                3~  203           INX              ; Step Index X to next memory location.
+                           204          
+20BF 20 E7             3~  205           BRA     ConLoop  ; Branch back to Index X check for continued processing.        
+                           206           
+20C1 FD 00 05          5~  207  ConFin   STD     DVal     ; Store ACCD in the DVal for later processing.
+20C4 39                5~  208           RTS              ; Return back from subroutine.
+                           209  ****************************************************************************
+                           210  *  Output Decimal, Hex and Binary -Output-                                 *
+                           211  ****************************************************************************
+                           212  * This Subroutine will output the DVal variable HEX to user and the binary equivalent
+                           213  *  of DVal in this format:   "Decimal" = "$HEX" = "%Binary"
+                           214  * Parameters: ACCA, ACCB and Index X are used in processing.
+                           215  *             No error code is sent back to Main, all error checks should occur before
+                           216  *              calling this subroutine!
+                           217  ****************************************************************************
+    =20C5                  218  Output   EQU     *       
+                           219  
+20C5 86 20             2~  220           LDAA    #' '     ; Load ACCA with a space and output.
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 5
+
+
+20C7 BD FF B8          6~  221           JSR     OUTA
+                           222           
+20CA 86 3D             2~  223           LDAA    #'='     ; Load ACCA with a equal and output.
+20CC BD FF B8          6~  224           JSR     OUTA         
+                           225           
+20CF 86 20             2~  226           LDAA    #' '     ; Load ACCA with a space and output.
+20D1 BD FF B8          6~  227           JSR     OUTA
+                           228  
+20D4 86 24             2~  229           LDAA    #'$'     ; Load ACCA with a dollar sign and output.
+20D6 BD FF B8          6~  230           JSR     OUTA
+                           231           
+20D9 B6 00 05          4~  232           LDAA    DVal     ; Load ACCA with the DVal first byte.
+20DC BD 21 19          6~  233           JSR     CHA2ASC  ; Output the DVal first byte in HEX to user.
+                           234           
+20DF B6 00 06          4~  235           LDAA    DVal+1   ; Load ACCA with the DVal second byte.
+20E2 BD 21 19          6~  236           JSR     CHA2ASC  ; Output the DVal second byte in HEX to user.
+                           237  
+20E5 86 20             2~  238           LDAA    #' '     ; Load ACCA with a space and output.
+20E7 BD FF B8          6~  239           JSR     OUTA
+                           240           
+20EA 86 3D             2~  241           LDAA    #'='     ; Load ACCA with a equal and output.
+20EC BD FF B8          6~  242           JSR     OUTA         
+                           243           
+20EF 86 20             2~  244           LDAA    #' '     ; Load ACCA with a space and output.
+20F1 BD FF B8          6~  245           JSR     OUTA
+                           246  
+20F4 86 25             2~  247           LDAA    #'%'     ; Load ACCA with a percent sign and output.
+20F6 BD FF B8          6~  248           JSR     OUTA
+                           249           
+20F9 FC 00 05          5~  250           LDD     DVal     ; Load DVal into ACCD.
+20FC CE 00 00          3~  251           LDX     #$00     ; Clear Index X.
+                           252           
+20FF 05                3~  253  OptBin   LSLD             ; Shift ACCD once to the left.
+                           254           
+2100 36                3~  255           PSHA             ; Push A to the stack.
+2101 24 07             3~  256           BCC     OptZero  ; Branch if carry is clear to output a zero.
+                           257           
+2103 86 31             2~  258           LDAA    #'1'     ; Else, load ACCA with a one and output. 
+2105 BD FF B8          6~  259           JSR     OUTA
+2108 20 05             3~  260           BRA     OptChk   ; Move to check if the loop has processed 16 times.
+                           261           
+210A 86 30             2~  262  OptZero  LDAA    #'0'     ; If carry is clear, load ACCA with a zero and output.
+210C BD FF B8          6~  263           JSR     OUTA
+                           264           
+210F 08                3~  265  OptChk   INX              ; Increment X to keep count.
+2110 8C 00 10          4~  266           CPX     #16      ; Check if the loop has processed all 16 bits.
+2113 32                4~  267           PULA             ; Pull A off the stack.
+2114 27 02             3~  268           BEQ     OptQuit  ; If Index X is 16 quit subroutine.
+                           269           
+2116 20 E7             3~  270           BRA     OptBin   ; Else, return to start of loop.
+                           271                    
+2118 39                5~  272  OptQuit  RTS              ; Return from subroutine.
+                           273  ****************************************************************************
+                           274  *  Character to ASCII Value Subroutine -CHA2ASC-                           *
+                           275  ****************************************************************************
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 6
+
+
+                           276  * This Subroutine takes a user inputed CHAR and converts it into
+                           277  *  it's proper ASCII Hex Value.
+                           278  * Parameters: The Input CHAR in ACCA
+                           279  *             Computes MSB hex value for ASCII CHAR and prints MSB,
+                           280  *              then LSB and prints LSB.
+                           281  *             CCR will be changed in here
+                           282  ****************************************************************************
+    =2119                  283  CHA2ASC  EQU     *        ; Start of subroutine.
+                           284  ************************** MSB Processing **********************************
+2119 16                2~  285           TAB
+211A 44                2~  286           LSRA               ; Logical Shift Right ACC A 1st time 
+211B 44                2~  287           LSRA               ;                           2nd time
+211C 44                2~  288           LSRA               ;                           3rd time
+211D 44                2~  289           LSRA               ;                           4th time
+                           290          
+211E 81 0A             2~  291           CMPA    #$0A     ; If the value is equal to $A, go process the A.
+2120 2C 07             3~  292           BGE     GrtA
+                           293          
+2122 8A 30             2~  294           ORA     #$30
+2124 BD FF B8          6~  295           JSR     OUTA     ; Call BuFFALO rtn to output ACCA. 
+2127 20 06             3~  296           BRA     NextDig  ; Skip to the end of Subroutine.
+                           297          
+2129 BB 00 07          4~  298  GrtA     ADDA    AtoF
+212C BD FF B8          6~  299           JSR     OUTA
+                           300  ************************** LSB Processing **********************************     
+212F 17                2~  301  NextDig  TBA 
+2130 84 0F             2~  302           ANDA    #$0F
+                           303          
+2132 81 0A             2~  304           CMPA    #$0A     ; If the value is equal to $A, go process the A.
+2134 2C 07             3~  305           BGE     GrtA2
+                           306          
+2136 8A 30             2~  307           ORA     #$30
+2138 BD FF B8          6~  308           JSR     OUTA     ; Call BuFFALO rtn to output ACCA. 
+213B 20 06             3~  309           BRA     FinASC   ; Skip to the end of Subroutine.
+                           310          
+213D BB 00 07          4~  311  GrtA2    ADDA    AtoF
+2140 BD FF B8          6~  312           JSR     OUTA
+                           313          
+2143 39                5~  314  FinASC   RTS              ; Returns back to program 
+                           315  ;                           (MSB and LSB already displayed)
+                           316  ****************************************************************************
+                           317  * 4) DATA section - variables & other data used by program                 *
+                           318  ****************************************************************************
+                           319  ;    a) constant data definitions (FCB,FDB,FCC)...
+2144 57 65 6C 63 6F 6D     320  Greet    FCB      "Welcome to the BCD to Binary Converter (16-Bit)!",CR,EOT
+214A 65 20 74 6F 20 74
+2150 68 65 20 42 43 44
+2156 20 74 6F 20 42 69
+215C 6E 61 72 79 20 43
+2162 6F 6E 76 65 72 74
+2168 65 72 20 28 31 36
+216E 2D 42 69 74 29 21
+2174 0D 04
+2176 31 36 2D 42 69 74     321  Prompt   FCB      "16-Bit Decimal Calculator by: Andrew Bissell",CR,":    ",EOT
+217C 20 44 65 63 69 6D
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 7
+
+
+2182 61 6C 20 43 61 6C
+2188 63 75 6C 61 74 6F
+218E 72 20 62 79 3A 20
+2194 41 6E 64 72 65 77
+219A 20 42 69 73 73 65
+21A0 6C 6C 0D 3A 20 20
+21A6 20 20 04
+21A9 43 6F 6E 76 65 72     322  ErrMsg   FCB      "Conversion OVERFLOW! Insert number from 0 - 65535.",CR,EOT   
+21AF 73 69 6F 6E 20 4F
+21B5 56 45 52 46 4C 4F
+21BB 57 21 20 49 6E 73
+21C1 65 72 74 20 6E 75
+21C7 6D 62 65 72 20 66
+21CD 72 6F 6D 20 30 20
+21D3 2D 20 36 35 35 33
+21D9 35 2E 0D 04
+21DD 0D 50 72 6F 67 72     323  QuitMess FCB      CR,"Program Terminated! Have a great day!",EOT
+21E3 61 6D 20 54 65 72
+21E9 6D 69 6E 61 74 65
+21EF 64 21 20 48 61 76
+21F5 65 20 61 20 67 72
+21FB 65 61 74 20 64 61
+2201 79 21 04
+                           324  
+                           325  ;    b) variable data allocations (RMB)...
+0000                       326           ORG     RWDATA
+                           327  
+0000 (0005)                328  DecVal   RMB     5
+0005 (0002)                329  DVal     RMB     2
+0007 37                    330  AtoF     FCB     $37
+                           331  ****************************************************************************
+0008                       332           END
+    Cycles Counted:  546
+
+------------
+ 332 Lines
+   0 Errors
+   0 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/26/2021 15:41:10
+Lab 10: BCD to Binary Conversion                                                                          Page 8
+
+
+                                            S Y M B O L   T A B L E
+
+0007 AtoF                   0008 BACKSPA                20A6 BCD2Hex                0007 BELL                   
+20A3 BadInp                 2119 CHA2ASC                2000 CODE                   000D CR                     
+2070 ChkDec                 2071 ChkDig1                20C1 ConFin                 20A8 ConLoop                
+0005 DVal                   0000 DecVal                 2062 Delete                 0004 EOT                    
+001B ESC                    21A9 ErrMsg                 2033 ErrOv                  2054 ErrorInp               
+206F Fin                    2143 FinASC                 205B GdInp                  2144 Greet                  
+2129 GrtA                   213D GrtA2                  FFCD INCHAR                 203C INSERDEC               
+2006 InputSt                2000 Main                   202B MainESC                212F NextDig                
+FFB8 OUTA                   FFC7 OUTSTRG                20FF OptBin                 210F OptChk                 
+2118 OptQuit                210A OptZero                20C5 Output                 2176 Prompt                 
+203B Quit                   20A5 QuitChk                21DD QuitMess               0000 RWDATA                 
+203C Start                  
+
+  45 Symbols defined.
