@@ -1,0 +1,123 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/24/2021 12:47:29
+Lab 06 Done in a Different Way!                                                                           Page 1
+
+
+                             1          TTL     "Lab 06 Done in a Different Way!"
+                             2  
+                             3  ******************************************************************
+                             4  * 1) HEADER block - overall info about the program
+                             5  
+                             6  * Project name: Lab 06
+                             7  * Author(s): Andrew D. Bissell
+                             8  * Date: 03/24/2021
+                             9  * Description:
+                            10  *   This program will take a CHAR input from the user and display
+                            11  *   it back with the previous and the next CHAR in the following
+                            12  *   format <CHAR>-1=<previous CHAR>, <CHAR>+1=<next CHAR>
+                            13  *   Example: (user input)B B-1=A, B+1=C
+                            14  *   To exit hit the ESC key
+                            15  *
+                            16  ******************************************************************
+                            17  
+                            18  ******************************************************************
+                            19  * 2) EQUATE section - define symbolic names for various values
+                            20  ;    examples:
+                            21  
+                            22  ;    a) constants...
+    =000D                   23  CR      EQU     $0D     ;ASCII Carriage Return
+    =0004                   24  EOT     EQU     $04     ;ASCII for End Of Transmission
+    =001B                   25  ESC     EQU     $1B     ;ASCII for Escape
+                            26  
+                            27  * BUFFALO utility routine entry points ;Subroutines
+    =FFB8                   28  OUTA    EQU     $FFB8   ;BUFFALO rtn to output char in acc A
+    =FFC7                   29  OUTSTRG EQU     $FFC7   ;BUFFALO OUTSTRING Subroutine
+    =FFCD                   30  INCHAR  EQU     $FFCD   ;BUFFALO INCHAR Subroutine
+                            31  
+                            32  ;    c) memory map equates (memory locations to run the program)
+                            33  
+    =0000                   34  RWDATA  EQU     $0000   ;Where to place read/write(RAM) variables
+    =2000                   35  CODE    EQU     $2000   ;Where to start placing program object code
+                            36                          ;32K RAM (U5) on CME11E9-EVBU board
+                            37  
+                            38  ******************************************************************
+                            39  
+                            40  ******************************************************************
+                            41  * 3) CODE section - actual program code
+                            42  
+2000                        43          ORG     CODE    ; tell assembler where to begin object code
+                            44          
+                            45  ; main program body follows
+    =2000                   46  Main    EQU     *       ;Define label for start of Main program.
+2000 86 3A             2~   47          LDAA    #':'    ;Load ACCA with the ASCII code for :
+2002 BD FF B8          6~   48          JSR     OUTA    ;Displays the contents of ACCA (:)
+2005 BD FF CD          6~   49          JSR     INCHAR  ;Wait for user inputed CHAR
+2008 81 1B             2~   50          CMPA    #ESC    ;Check for ESC press
+200A 27 13             3~   51          BEQ     Stop    ;Branches to the SWI
+                            52  ;       JSR     OUTA    ;Display the CHAR back
+200C CE 20 20          3~   53          LDX     #Msg1   ;Loads the location of Msg1 in X
+200F A7 00             4~   54          STAA    0,X     ;Store the user input as the first CHAR
+2011 A7 07             4~   55          STAA    7,X     ;Store the user input as the seventh CHAR
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/24/2021 12:47:29
+Lab 06 Done in a Different Way!                                                                           Page 2
+
+
+                            56          
+2013 4A                2~   57  Prev    DECA            ;To find the previous CHAR
+2014 A7 04             4~   58          STAA    4,X     ;Store the previous as the fourth CHAR
+                            59          
+2016 4C                2~   60  Next    INCA            ;INCA to the original CHAR
+2017 4C                2~   61          INCA            ;INCA to the next CHAR
+2018 A7 0B             4~   62          STAA    11,X    ;Store the next CHAR as the eleventh CHAR
+                            63          
+201A BD FF C7          6~   64          JSR     OUTSTRG
+201D 20 E1             3~   65          BRA     Main    ;Branches to start of Program
+                            66          
+201F 3F               14~   67  Stop    SWI             ;return to BUFFALO monitor on HC11EVB
+                            68          
+                            69  ******************************************************************
+                            70  
+                            71  ******************************************************************
+                            72  * 4) DATA section - variables & other data used by program
+                            73  
+                            74  ;    a) constant data definitions (FCB,FDB,FCC)...
+                            75  
+2020 49 2D 31 3D 50 2C      76  Msg1    FCC     "I-1=P, I+1=N"
+2026 20 49 2B 31 3D 4E
+202C 0D 04                  77          FCB     CR,EOT
+                            78  
+                            79  ;    b) variable data allocations (RMB)...
+                            80  
+                            81  * Uncomment the following ORG statement to cause the assembler to
+                            82  * position the variable data somewhere specific in RAM, otherwise
+                            83  * the data storage will follow the constant data above.
+                            84  ;       ORG     RWDATA
+                            85  
+202E (0001)                 86  ByteVar RMB     1       ;a 1-byte variable
+202F (0002)                 87  WordVar RMB     2       ;a 2-byte (1 word) variable
+                            88  
+                            89  ******************************************************************
+                            90  
+                            91  ; End of assembly source code
+2031                        92          END
+    Cycles Counted:   67
+
+------------
+  92 Lines
+   0 Errors
+   0 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/24/2021 12:47:29
+Lab 06 Done in a Different Way!                                                                           Page 3
+
+
+                                            S Y M B O L   T A B L E
+
+202E ByteVar                2000 CODE                   000D CR                     0004 EOT                    
+001B ESC                    FFCD INCHAR                 2000 Main                   2020 Msg1                   
+2016 Next                   FFB8 OUTA                   FFC7 OUTSTRG                2013 Prev                   
+0000 RWDATA                 201F Stop                   202F WordVar                
+
+  15 Symbols defined.
