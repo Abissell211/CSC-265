@@ -1,0 +1,31 @@
+// Classroom => NE Hallway
+move_forward();		// Classroom >> NE Hallway
+Distance_Traveled(185);	// Move into NE hallway
+stop();
+move_turn_right();	// Turn right on NE Hallway
+move_forward();		// Move on NE hallway
+Distance_Traveled(***);	// NEED TO FIND THIS VALUE	// Drive from Classroom door to center of NW Hallway
+move_turn_left();	// Turn left onto NW Hallway
+
+// NE Hallway => NW Hallway
+move_forward();		// Move on NW Hallway
+Distance_Traveled(1087);// Move on NW Hallway
+move_turn_left();	// Turn left onto SW Hallway
+
+// NW Hallway => SW Hallway
+move_forward();			// Move on SW Hallway
+Distance_Traveled(1780.5);	// Move on SW Hallway
+move_turn_left();		// Turn left onto SE Hallway
+
+// SW Hallway => SE Hallway
+// Samw as NE Hallway => NW Hallway
+move_forward();		// Move on SE Hallway
+Distance_Traveled(1087);// Move on SE Hallway
+move_turn_left();	// Turn left onto NE Hallway
+
+// NW Hallway => NE Hallway
+move_forward();		// Move on NE Hallway
+Distance_Traveled(***);	// NEED TO FIND THIS VALUE	// Drive on NE Hallway till infront of Classroom door
+move_turn_right();	// Turn toward Classroom
+move_forward();		// Move inside Classroom
+Distance_Traveled(185);	// Move inside Classroom
