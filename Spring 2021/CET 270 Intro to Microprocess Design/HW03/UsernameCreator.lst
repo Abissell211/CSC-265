@@ -1,0 +1,408 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 1
+
+
+                             1          TTL     "HW03 - Username Creator"
+                             2  
+                             3  ****************************************************************************
+                             4  * 1) HEADER block - overall info about the program                         *
+                             5  ****************************************************************************
+                             6  * Project name:   UsernameCreator
+                             7  * Author(s):      Andrew D. Bissell
+                             8  * Date:           04/07/2021
+                             9  * Description:
+                            10  *   This program allows a user to create a password that is 6 - 20 characters
+                            11  *   long with letters a - z lower case and capital, and with periods only. 
+                            12  *   The user will have to input the username twice to check if it matches if
+                            13  *   it does not follow criteria or the first username does not match the 
+                            14  *   second the user will have to restart from the beginning. If the usernames
+                            15  *   match the user will get a congratulations message and the username displayed.
+                            16  ****************************************************************************
+                            17  * 2) EQUATE section - define symbolic names for various values             *
+                            18  ****************************************************************************
+                            19  ;    a) constants...
+    =000D                   20  CR      EQU     $0D       ;ASCII Carriage Return (To create a newline on output)
+    =0004                   21  EOT     EQU     $04       ;ASCII for End Of Transmission (Use with OUTSTRG)
+    =001B                   22  ESC     EQU     $1B       ;ASCII for Escape (For quitting the program)
+                            23  
+                            24  ;    b) "system" objects (I/O registers, monitor routines, etc.)
+                            25  * BUFFALO utility routine entry points
+    =FFB8                   26  OUTA     EQU     $FFB8    ;BUFFALO rtn to output char in acc A
+    =FFC7                   27  OUTSTRG  EQU     $FFC7    ;BUFFALO rtn to output a string
+    =FFCD                   28  INCHAR   EQU     $FFCD    ;BUFFALO rtn to take a user input CHAR
+                            29  
+                            30  ;    c) memory map equates
+                            31  
+    =0100                   32  USERDATA EQU     $0100    ;Where to place read/write(RAM) variables
+    =2000                   33  CODE     EQU     $2000    ;Where to start placing program object code
+                            34                            ;32K RAM (U5) on CME11E9-EVBU board
+                            35  ****************************************************************************
+                            36  * 3) CODE section - actual program code                                    *
+                            37  ****************************************************************************
+2000                        38           ORG     CODE     ; Tell assembler where to begin object code.
+                            39          
+    =2000                   40  Main     EQU     *        ; Define label for start of Main program.
+                            41  
+2000 CE 20 FD          3~   42           LDX     #Greet  
+2003 BD FF C7          6~   43           JSR     OUTSTRG  ; Displays the welcome message.
+                            44  ;                          "Welcome to the username creator!"
+2006 20 19             3~   45           BRA     Prompt   ; Skip error messages and begin inputs.
+                            46           
+                            47  ***************************** ERROR MESSAGES! ******************************         
+2008 CE 22 39          3~   48  ErrMsg1  LDX     #Err2L2S
+200B BD FF C7          6~   49           JSR     OUTSTRG  ; Displays the error message for too long or too short username.
+                            50  ;                          "ERROR!!! Username is too long or too short! 
+                            51  ;                           Must be between 0-26 characters!"
+200E 5F                2~   52           CLRB             ; Clear ACCB used to check for errors.
+200F 20 10             3~   53           BRA     Prompt   ; Return to start of program inputs.
+                            54           
+2011 CE 22 88          3~   55  ErrMsg2  LDX     #ErrIncIn
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 2
+
+
+2014 BD FF C7          6~   56           JSR     OUTSTRG  ; Displays the error message for username criteria not met.
+                            57  ;                          "ERROR!!! Username does not match criteria please try again!"
+2017 5F                2~   58           CLRB             ; Clear ACCB used to check for errors.
+2018 20 07             3~   59           BRA     Prompt   ; Return to start of program inputs.
+                            60           
+201A CE 22 C6          3~   61  ErrMsg3  LDX     #ErrNoMat
+201D BD FF C7          6~   62           JSR     OUTSTRG  ; Displays the error message for usernames not matching.
+                            63  ;                          "ERROR!!! Usernames do not match please try again!"
+2020 5F                2~   64           CLRB             ; Clear ACCB used to check for errors.
+                            65  ***************************** Username Input 1 *****************************
+2021 CE 21 1F          3~   66  Prompt   LDX     #Prompt1
+2024 BD FF C7          6~   67           JSR     OUTSTRG  ; Displays the prompt message to input the username.
+                            68  ;                          "Please enter a username 6-20 characters long lowercase 
+                            69  ;                           and capital letters accatable,"
+2027 5F                2~   70           CLRB
+                            71                
+2028 CE 01 00          3~   72           LDX     #UsName1 ; Loads the first username memory locations in index x.
+202B BD 20 7F          6~   73           JSR     INSERUNA ; Jumps to the insert username subroutine.
+                            74           
+202E 81 1B             2~   75           CMPA    #ESC     ; Checks if the user wants to quit program.
+2030 27 46             3~   76           BEQ     Quit     ; If the user pressed escape quit program.
+                            77           
+2032 C1 FF             2~   78           CMPB    #$FF     ; Checks if there was an error in the previous subroutine.
+2034 27 D2             3~   79           BEQ     ErrMsg1  ; If there was an error display the too long or too short error.
+                            80  
+2036 CE 00 00          3~   81           LDX     #$00     ; Reset index x back at zero.
+2039 CE 01 00          3~   82           LDX     #UsName1 ; Re-load the first username with index x.        
+203C BD 20 A9          6~   83           JSR     CHKUNC   ; Jump to the check username subroutine.
+                            84           
+203F C1 FF             2~   85           CMPB    #$FF     ; Checks if there was an error in the previous subroutine.
+2041 27 CE             3~   86           BEQ     ErrMsg2  ; If there was an error display the username doesn't meet 
+                            87  ;                           criteria error message.
+                            88  ***************************** Username Input 2 *****************************         
+2043 CE 21 DF          3~   89           LDX     #Prompt2 
+2046 BD FF C7          6~   90           JSR     OUTSTRG  ; Displays the prompt message for username re-entry.
+                            91  ;                          "Please re-enter the username (press enter to finish username or 
+                            92  ;                           escape to quit program): "  
+2049 5F                2~   93           CLRB             ; Clear ACCB used to check for errors.  
+204A CE 01 1E          3~   94           LDX     #UsName2 ; Loads the second username memory locations in index x. 
+204D BD 20 7F          6~   95           JSR     INSERUNA ; Jumps to the insert username subroutine.
+                            96           
+2050 81 1B             2~   97           CMPA    #ESC     ; Checks if the user wants to quit program.
+2052 27 24             3~   98           BEQ     Quit     ; If the user pressed escape quit program.
+                            99           
+2054 C1 FF             2~  100           CMPB    #$FF     ; Checks if there was an error in the previous subroutine.
+2056 27 B0             3~  101           BEQ     ErrMsg1  ; If there was an error display the too long or too short error.
+                           102   
+2058 CE 00 00          3~  103           LDX     #$00     ; Reset index x back at zero.
+205B CE 01 1E          3~  104           LDX     #UsName2 ; Re-load the second username with index x.         
+205E BD 20 A9          6~  105           JSR     CHKUNC   ; Jump to the check username subroutine.
+                           106           
+2061 C1 FF             2~  107           CMPB    #$FF     ; Checks if there was an error in the previous subroutine.
+2063 27 AC             3~  108           BEQ     ErrMsg2  ; If there was an error display the username doesn't meet 
+                           109  ;                            criteria error message.
+                           110  ***************************** Check Usernames ******************************                  
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 3
+
+
+2065 BD 20 D7          6~  111           JSR     CHKUN1A2 ; Jump to the check username one and two 
+                           112           
+2068 C1 FF             2~  113           CMPB    #$FF     ; Checks if there was an error in the previous subroutine. 
+206A 27 AE             3~  114           BEQ     ErrMsg3  ; If there was an error display the usernames do not match error.
+                           115           
+206C CE 22 FA          3~  116           LDX     #DisplyUN 
+206F BD FF C7          6~  117           JSR     OUTSTRG  ; Display the compeleted username message and username.
+                           118          ;                  "Congratulations! The validated username entered was: " 
+2072 CE 01 00          3~  119           LDX     #UsName1 ; Load index x with the username that was validated.
+2075 BD FF C7          6~  120           JSR     OUTSTRG  ; Display the user created username.
+                           121         
+2078 CE 23 30          3~  122  Quit     LDX     #QuitMess  
+207B BD FF C7          6~  123           JSR     OUTSTRG  ; Displays the quit message.
+                           124  ;                          "Program Terminated! Have a great day!"
+                           125          
+207E 3F               14~  126           SWI              ; Return to BUFFALO monitor on HC11EVB.
+                           127  ****************************************************************************
+                           128  *  Username Creator Subroutine -INSERUNA-                                  *
+                           129  ****************************************************************************
+                           130  * This Subroutine takes user inputted characters and creates a username in a
+                           131  *  location of memory.
+                           132  *
+                           133  * Parameters: Index X must point to an array of bytes to store CHARS into.
+                           134  *             ACCB is used for ERROR checks.
+                           135  ****************************************************************************
+    =207F                  136  INSERUNA EQU     *        ; Start of subroutine.
+                           137  
+207F BD FF CD          6~  138  Start1   JSR     INCHAR   ; Store the CHAR in ACCA
+                           139  
+2082 81 0D             2~  140           CMPA    #CR      ; Checks to see if the user pressed enter (finish username).
+2084 27 0A             3~  141           BEQ     InsrEOT  ; If the user pressed enter move to insert EOT.
+                           142           
+2086 81 1B             2~  143           CMPA    #ESC     ; Checks to see if the user pressed escape (quit program).
+2088 27 18             3~  144           BEQ     Escape   ; If the user pressed escape move to escape to quit program.
+                           145                  
+208A A7 00             4~  146           STAA    0,X      ; Store the CHAR in the username memory found with index x.
+208C 08                3~  147           INX              ; Increment to the next memory location.
+208D 5C                2~  148           INCB             ; Increment the count using ACCB to find if the username is too
+                           149  ;                           small or too large.
+208E 20 EF             3~  150           BRA     Start1   ; Restart for the next user input.
+                           151          
+2090 86 04             2~  152  InsrEOT  LDAA    #EOT     ; Load the EOT CHAR in ACCA.
+2092 A7 00             4~  153           STAA    0,X      ; Stores the EOT at the next data slot.
+                           154  
+2094 C1 05             2~  155           CMPB    #$05     ; Checks using increments of B if the input username is too small.
+2096 23 06             3~  156           BLS     ErrMsg   ; Will give an error message if B <= 5.
+                           157           
+2098 C1 1B             2~  158           CMPB    #$1B     ; Checks using increments of B if the input username is too large.
+209A 24 02             3~  159           BHS     ErrMsg   ; Will give an error message if B >= 27.
+                           160           
+209C 20 0A             3~  161           BRA     Fin      ; Move to RTS. 
+                           162           
+209E C6 FF             2~  163  ErrMsg   LDAB    #$FF     ; Load ACCB with $FF(-1) to signal error.
+20A0 20 06             3~  164           BRA     Fin      ; Move to RTS.
+                           165           
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 4
+
+
+20A2 86 04             2~  166  Escape   LDAA    #EOT     ; Load ACCA with EOT to finish the username as is.
+20A4 A7 00             4~  167           STAA    0,X      ; Stores EOT in the next memory location.
+20A6 86 1B             2~  168           LDAA    #ESC     ; Load ACCA with the escape charater to quit once returned to main.
+                           169           
+20A8 39                5~  170  Fin      RTS              ; Return from subroutine.
+                           171  ****************************************************************************
+                           172  *  Check Username Criteria Subroutine -CHKUNC-                             *
+                           173  ****************************************************************************
+                           174  * This Subroutine checks the inputed string for bad data the good data is:
+                           175  * 6-20 characters, lowercase/capital letters, and periods
+                           176  *  
+                           177  * Parameters: Index x must point to a filled array to check each character.
+                           178  *             ACCB is used for ERROR checks.
+                           179  ****************************************************************************
+    =20A9                  180  CHKUNC   EQU     *        ; Start of subroutine.
+                           181           
+20A9 A6 00             4~  182  Start2   LDAA    0,X      ; Load ACCA with the memory location of the username
+                           183  ;                          using index x.
+                           184  
+20AB 81 04             2~  185           CMPA    #EOT     ; Checks if the memory location hits the end of the username.
+20AD 27 27             3~  186           BEQ     Stop     ; If it does, stop checking and move to the end of subroutine.
+                           187           
+20AF 81 2D             2~  188           CMPA    #$2D     ; Checks if the character is a '-' or lower.
+20B1 23 1C             3~  189           BLS     BAD      ; If it is, its bad data move to send error message.
+                           190           
+20B3 81 2E             2~  191           CMPA    #$2E     ; Checks if the character is a '.'.
+20B5 27 1C             3~  192           BEQ     GOOD     ; If it is, its good data move to next memory location.  
+                           193  
+20B7 81 2F             2~  194           CMPA    #$2F     ; Checks if the character is a '/'.
+20B9 27 14             3~  195           BEQ     BAD      ; If it is, its bad data move to send error message.
+                           196  
+20BB 81 39             2~  197           CMPA    #$39     ; Checks if the character is a '9' or lower.
+20BD 23 14             3~  198           BLS     GOOD     ; If it is, its good data move to next memory location. 
+                           199  
+20BF 81 40             2~  200           CMPA    #$40     ; Checks if the character is a '@' or lower.
+20C1 23 0C             3~  201           BLS     BAD      ; If it is, its bad data move to send error message.
+                           202  
+20C3 81 5A             2~  203           CMPA    #$5A     ; Checks if the character is a ' ' or lower.
+20C5 23 0C             3~  204           BLS     GOOD     ; If it is, its good data move to next memory location. 
+                           205   
+20C7 81 60             2~  206           CMPA    #$60     ; Checks if the character is a ' ' or lower.
+20C9 23 04             3~  207           BLS     BAD      ; If it is, its bad data move to send error message.
+                           208  
+20CB 81 7A             2~  209           CMPA    #$7A     ; Checks if the character is a ' ' or lower.
+20CD 23 04             3~  210           BLS     GOOD     ; If it is, its good data move to next memory location. 
+                           211  
+20CF C6 FF             2~  212  BAD      LDAB    #$FF     ; Since it is bad data, load ACCB with the error value (-1).
+20D1 20 03             3~  213           BRA     Stop     ; Move to RTS.
+                           214           
+20D3 08                3~  215  GOOD     INX              ; Increment X to get the next character.
+20D4 20 D3             3~  216           BRA     Start2   ; Restart at the beginning to check next character.
+                           217  
+20D6 39                5~  218  Stop     RTS              ; Return from subroutine.         
+                           219  ****************************************************************************
+                           220  *  Check Username 1st and 2nd Input -CHKUN1A2-                             *
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 5
+
+
+                           221  ****************************************************************************
+                           222  * This Subroutine uses the x and y index registers to check the first and second
+                           223  *     usernames character by character to see if they match.
+                           224  *  
+                           225  * Parameters: Index x points to the first username array and Index y points 
+                           226  *              to the second username array to compare against each other.
+                           227  *              ACCA is used with Index x and ACCB is used with Index y.
+                           228  *              ACCB is still used for ERROR checks (if error is found ACCB is forced
+                           229  *                                                    with $FF)
+                           230  ****************************************************************************
+    =20D7                  231  CHKUN1A2 EQU     *        ; Start of subroutine.
+                           232  
+20D7 CE 00 00          3~  233           LDX     #$00     ; Reset index x to zero.
+20DA CE 01 00          3~  234           LDX     #UsName1 ; Load the first username using index x.
+                           235           
+20DD 18 CE 01 1E       4~  236           LDY     #UsName2 ; Load the second username using index y.
+20E1 C6 00             2~  237           LDAB    #$0      ; Reset ACCB to zero
+20E3 20 07             3~  238           BRA     Begin    ; Move to the start of the checks.
+                           239           
+20E5 08                3~  240  Next     INX              ; Step the first username to the next character.
+20E6 18 08             4~  241           INY              ; Step the second username to the next character.
+20E8 81 04             2~  242           CMPA    #EOT     ; Check if first username has hit EOT.
+20EA 27 0C             3~  243           BEQ     EndCheck ; If it does move to the last check.
+                           244           
+20EC A6 00             4~  245  Begin    LDAA    0,X      ; Load ACCA with the character found at x index.
+20EE 18 E6 00          5~  246           LDAB    0,Y      ; Load ACCB with the character found at y index.
+20F1 11                2~  247           CBA              ; Check if the characters for the first and second 
+                           248           ;                 username match.
+20F2 27 F1             3~  249           BEQ     Next     ; If they do, go back to check the next character.
+                           250           
+20F4 C6 FF             2~  251  ChkErr   LDAB    #$FF     ; If they don't, load ACCB with the error value(-1). 
+20F6 20 04             3~  252           BRA     FinChk   ; Move to RTS.
+                           253  
+20F8 C1 04             2~  254  EndCheck CMPB    #EOT     ; Check if second username has hit EOT.
+20FA 26 F8             3~  255           BNE     ChkErr   ; If it hasn't, go to the error set.
+                           256  
+20FC 39                5~  257  FinChk   RTS              ; Return from subroutine.   
+                           258  ****************************************************************************
+                           259  * 4) DATA section - variables & other data used by program                 *
+                           260  ****************************************************************************
+                           261  ;    a) constant data definitions (FCB,FDB,FCC)...
+20FD 57 65 6C 63 6F 6D     262  Greet    FCB      "Welcome to the username creator!",CR,EOT
+2103 65 20 74 6F 20 74
+2109 68 65 20 75 73 65
+210F 72 6E 61 6D 65 20
+2115 63 72 65 61 74 6F
+211B 72 21 0D 04
+211F 50 6C 65 61 73 65     263  Prompt1  FCB      "Please enter a username 6-20 characters long lowercase and capital letters accatable,",CR,"no special characters allowed except periods",CR,"(press enter to finish username or escape to quit program): ",EOT
+2125 20 65 6E 74 65 72
+212B 20 61 20 75 73 65
+2131 72 6E 61 6D 65 20
+2137 36 2D 32 30 20 63
+213D 68 61 72 61 63 74
+2143 65 72 73 20 6C 6F
+2149 6E 67 20 6C 6F 77
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 6
+
+
+214F 65 72 63 61 73 65
+2155 20 61 6E 64 20 63
+215B 61 70 69 74
+21DF 50 6C 65 61 73 65     264  Prompt2  FCB      "Please re-enter the username (press enter to finish username or escape to quit program): ",EOT
+21E5 20 72 65 2D 65 6E
+21EB 74 65 72 20 74 68
+21F1 65 20 75 73 65 72
+21F7 6E 61 6D 65 20 28
+21FD 70 72 65 73 73 20
+2203 65 6E 74 65 72 20
+2209 74 6F 20 66 69 6E
+220F 69 73 68 20 75 73
+2215 65 72 6E 61 6D 65
+221B 20 6F 72 20
+2239 45 52 52 4F 52 21     265  Err2L2S  FCB      "ERROR!!! Username is too long or too short! Must be between 0-26 characters!",CR,CR,EOT
+223F 21 21 20 55 73 65
+2245 72 6E 61 6D 65 20
+224B 69 73 20 74 6F 6F
+2251 20 6C 6F 6E 67 20
+2257 6F 72 20 74 6F 6F
+225D 20 73 68 6F 72 74
+2263 21 20 4D 75 73 74
+2269 20 62 65 20 62 65
+226F 74 77 65 65 6E 20
+2275 30 2D 32 36
+2288 45 52 52 4F 52 21     266  ErrIncIn FCB      "ERROR!!! Username does not match criteria please try again!",CR,CR,EOT
+228E 21 21 20 55 73 65
+2294 72 6E 61 6D 65 20
+229A 64 6F 65 73 20 6E
+22A0 6F 74 20 6D 61 74
+22A6 63 68 20 63 72 69
+22AC 74 65 72 69 61 20
+22B2 70 6C 65 61 73 65
+22B8 20 74 72 79 20 61
+22BE 67 61 69 6E 21 0D
+22C4 0D 04
+22C6 45 52 52 4F 52 21     267  ErrNoMat FCB      "ERROR!!! Usernames do not match please try again!",CR,CR,EOT
+22CC 21 21 20 55 73 65
+22D2 72 6E 61 6D 65 73
+22D8 20 64 6F 20 6E 6F
+22DE 74 20 6D 61 74 63
+22E4 68 20 70 6C 65 61
+22EA 73 65 20 74 72 79
+22F0 20 61 67 61 69 6E
+22F6 21 0D 0D 04
+22FA 43 6F 6E 67 72 61     268  DisplyUN FCB      "Congratulations! The validated username entered was: ",EOT
+2300 74 75 6C 61 74 69
+2306 6F 6E 73 21 20 54
+230C 68 65 20 76 61 6C
+2312 69 64 61 74 65 64
+2318 20 75 73 65 72 6E
+231E 61 6D 65 20 65 6E
+2324 74 65 72 65 64 20
+232A 77 61 73 3A 20 04
+2330 0D 50 72 6F 67 72     269  QuitMess FCB      CR,"Program Terminated! Have a great day!",EOT
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 7
+
+
+2336 61 6D 20 54 65 72
+233C 6D 69 6E 61 74 65
+2342 64 21 20 48 61 76
+2348 65 20 61 20 67 72
+234E 65 61 74 20 64 61
+2354 79 21 04
+                           270  
+                           271  ;    b) variable data allocations (RMB)...
+                           272  * Input Buffer
+0100                       273           ORG      USERDATA ; To save the user input at a location
+                           274  ;                            starting at $0100
+0100 (001E)                275  UsName1  RMB     30;
+011E (001E)                276  UsName2  RMB     30;
+                           277  ****************************************************************************
+                           278  ; End of assembly source code
+013C                       279          END
+    Cycles Counted:  383
+
+------------
+ 279 Lines
+   0 Errors
+   0 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/11/2021 10:37:07
+HW03 - Username Creator                                                                                   Page 8
+
+
+                                            S Y M B O L   T A B L E
+
+20CF BAD                    20EC Begin                  20D7 CHKUN1A2               20A9 CHKUNC                 
+2000 CODE                   000D CR                     20F4 ChkErr                 22FA DisplyUN               
+0004 EOT                    001B ESC                    20F8 EndCheck               2239 Err2L2S                
+2288 ErrIncIn               209E ErrMsg                 2008 ErrMsg1                2011 ErrMsg2                
+201A ErrMsg3                22C6 ErrNoMat               20A2 Escape                 20A8 Fin                    
+20FC FinChk                 20D3 GOOD                   20FD Greet                  FFCD INCHAR                 
+207F INSERUNA               2090 InsrEOT                2000 Main                   20E5 Next                   
+FFB8 OUTA                   FFC7 OUTSTRG                2021 Prompt                 211F Prompt1                
+21DF Prompt2                2078 Quit                   2330 QuitMess               207F Start1                 
+20A9 Start2                 20D6 Stop                   0100 USERDATA               0100 UsName1                
+011E UsName2                
+
+  41 Symbols defined.
