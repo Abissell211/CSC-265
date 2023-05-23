@@ -1,0 +1,154 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 14:55:22
+Lab 8 - SumEven Program                                                                                   Page 1
+
+
+                             1          TTL     "Lab 8 - SumEven Program"
+                             2  
+                             3  ******************************************************************
+                             4  * 1) HEADER block - overall info about the program
+                             5  
+                             6  * Project name:   SumEven - Lab08
+                             7  * Author(s):      Andrew D. Bissell
+                             8  * Date:           03/25/2021
+                             9  * Description:
+                            10  *   This program adds all of the Even numbers in an array and
+                            11  *   stores the sum in variable SUM at location $0000.
+                            12  *     
+                            13  ******************************************************************
+                            14  
+                            15  ******************************************************************
+                            16  * 2) EQUATE section - define symbolic names for various values
+                            17  
+                            18  ;    a) constants...
+    =000D                   19  CR      EQU     $0D     ;ASCII Carriage Return
+    =0004                   20  EOT     EQU     $04     ;ASCII End Of Transmission char
+                            21  
+                            22  * BUFFALO utility routine entry points
+    =FFB8                   23  OUTA    EQU     $FFB8   ;BUFFALO rtn to output char in acc A
+    =FFC7                   24  OUTSTRG EQU     $FFC7   ;string output routine
+                            25  
+                            26  ;    b) memory map equates
+                            27  
+    =0000                   28  RWDATA  EQU     $0000   ;Where to place read/write(RAM) variables
+    =2000                   29  CODE    EQU     $2000   ;Where to start placing program object code
+                            30                          ;32K RAM (U5) on CME11E9-EVBU board
+                            31  
+                            32  ******************************************************************
+                            33  
+                            34  ******************************************************************
+                            35  * 3) CODE section - actual program code
+                            36  
+2000                        37          ORG     CODE       ; Tell assembler where to begin object code.
+                            38          
+    =2000                   39  Main    EQU     *          ; Start of Main program
+                            40  
+2000 86 14             2~   41          LDAA    #ArrSiz    ; Store the number of array bytes in ARYCNT.
+2002 B7 00 01          4~   42          STAA    ARYCNT  
+                            43          
+2005 CE 20 40          3~   44          LDX     #Array     ; Point X to starting address of array.
+2008 7F 00 00          6~   45          CLR     SUM        ; Initialze the SUM to zero.
+                            46          
+200B A6 00             4~   47  ChkAdd  LDAA    0,X        ; get the number pointed to by X.
+200D 84 01             2~   48          ANDA    #%00000001 ; Keep ONLY the LSB.  
+                            49  ;       BNE     ChkDONE    ; if Odd (LSB = 0), ignore and go check 
+                            50  ;                            next number.
+                            51  ; OR ! ------------------------------------------------------------        
+200F 44                2~   52          LSRA               ; Shift LSB into the C-flag.
+2010 25 08             3~   53          BCS     ChkDONE    ; If Carry = 1 (ODD Number), 
+                            54  ;                            skip to check if done ->
+                            55  ; -----------------------------------------------------------------
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 14:55:22
+Lab 8 - SumEven Program                                                                                   Page 2
+
+
+                            56  
+2012 B6 00 00          4~   57          LDAA    SUM        ; Otherwise, the number is EVEN (LSB = 1),
+2015 AB 00             4~   58          ADDA    0,X        ; So add it to what's already in SUM
+2017 B7 00 00          4~   59          STAA    SUM        ; and SAVE the result BACK TO SUM.
+                            60          
+201A 08                3~   61  ChkDONE INX                ; Move X to next number in array.
+201B 7A 00 01          6~   62          DEC     ARYCNT     ; Dec # of numbers left to look at in array.
+201E 26 EB             3~   63          BNE     ChkAdd     ; If not 0, continue to check next number.
+                            64          
+2020 CE 00 02          3~   65          LDX     #OUTPUT    ; Point X to OUTPUT string.
+2023 BD FF C7          6~   66          JSR     OUTSTRG    ; Call BUFFALO rtn to output it.
+                            67          
+2026 44                2~   68          LSRA               ; Logical Shift Right ACC A 1st time 
+2027 44                2~   69          LSRA               ;                           2nd time
+2028 44                2~   70          LSRA               ;                           3rd time
+2029 44                2~   71          LSRA               ;                           4th time
+202A 8A 36             2~   72          ORAA    #$36       ; ORAA with $36 to load bit with ASCII CHAR
+202C BD FF B8          6~   73          JSR     OUTA       ; Call BuFFALO rtn to output ACC A.
+                            74          
+202F B6 00 00          4~   75          LDAA    SUM        ; Reload ACC A with the SUM
+2032 84 00             2~   76          ANDA    #$00       ; ANDA with $04 to clear left bit.
+2034 8A 45             2~   77          ORAA    #$45       ; ORAA with $34 to load bit with ASCII CHAR
+2036 BD FF B8          6~   78          JSR     OUTA       ; Call BuFFALO rtn to output ACC A.
+                            79          
+2039 CE 00 2E          3~   80          LDX     #NEWLINE   ; Creates a space for the OUTPUT Message
+203C BD FF C7          6~   81          JSR     OUTSTRG
+                            82          
+203F 3F               14~   83          SWI                ; return to BUFFALO monitor on HC11EVB
+                            84  
+                            85          
+                            86  ******************************************************************
+                            87  
+                            88  ******************************************************************
+                            89  * 4) DATA section - variables & other data used by program
+                            90  
+                            91  ; Array of numbers to sort.
+2040 01 02 03 04 05 06      92  Array   FCB     1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20
+2046 07 08 09 0A 0B 0C
+204C 0D 0E 0F 10 11 12
+2052 13 14
+                            93                             ; Sum should equal $6E or 110. 
+    =0014                   94  ArrSiz  EQU     *-Array    ; Set ArrSiz to the number of 
+                            95  ;                            bytes in the array.
+                            96  
+0000                        97          ORG     RWDATA     ; Set data starting from RWDATA which
+                            98  ;                            is located at memory location $0000.
+                            99          
+0000 (0001)                100  SUM     RMB     1          ; Reserve for the sum.
+0001 (0001)                101  ARYCNT  RMB     1          ; Reserve for the # of elements left
+                           102  ;                            in array
+                           103  
+0002 54 68 65 20 73 75     104  OUTPUT  FCB     "The sum of EVEN numbers in the array are: $",EOT
+0008 6D 20 6F 66 20 45
+000E 56 45 4E 20 6E 75
+0014 6D 62 65 72 73 20
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 14:55:22
+Lab 8 - SumEven Program                                                                                   Page 3
+
+
+001A 69 6E 20 74 68 65
+0020 20 61 72 72 61 79
+0026 20 61 72 65 3A 20
+002C 24 04
+002E 20 0D 04              105  NEWLINE FCB     " ",CR,EOT
+                           106  ******************************************************************
+                           107  
+                           108  ; End of assembly source code
+0031                       109          END
+    Cycles Counted:  112
+
+------------
+ 109 Lines
+   0 Errors
+   0 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 14:55:22
+Lab 8 - SumEven Program                                                                                   Page 4
+
+
+                                            S Y M B O L   T A B L E
+
+0001 ARYCNT                 0014 ArrSiz                 2040 Array                  2000 CODE                   
+000D CR                     200B ChkAdd                 201A ChkDONE                0004 EOT                    
+2000 Main                   002E NEWLINE                FFB8 OUTA                   0002 OUTPUT                 
+FFC7 OUTSTRG                0000 RWDATA                 0000 SUM                    
+
+  15 Symbols defined.

@@ -1,0 +1,223 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 12:57:55
+Lab 8 - Demo Program                                                                                      Page 1
+
+
+                             1          TTL     "Lab 8 - Demo Program"
+                             2  
+                             3  ******************************************************************
+                             4  * 1) HEADER block - overall info about the program
+                             5  
+                             6  * Project name: Lab8Mod.asm
+                             7  * Author(s):    Andrew D. Bissell 
+                             8  * Date:         2021-03-25
+                             9  *
+                            10  * Description:
+                            11  *   The program displays a greeting message, then repeatedly loops,  
+                            12  *   inputting a character typed by the user, then outputing the 
+                            13  *   ASCII characters before and after the input character.
+                            14  * 
+                            15  *   Entering the Escape character terminates the program back to
+                            16  *   the BUFFALO monitor prompt.
+                            17  *
+                            18  *   If "C" is the input character, the output is in the format below:
+                            19  *
+                            20  *       : C-1=B, C+1=D
+                            21  *       : <ESC>
+                            22  *       >
+                            23  *
+                            24  *   NOTE:  Assemble using  CAS11 -cls lab8demo.asm
+                            25  *
+                            26  ******************************************************************
+                            27  
+                            28  ******************************************************************
+                            29  * 2) EQUATE section - define symbolic names for various values
+                            30  
+                            31  ;    a) constants...
+                            32  
+                            33  * Define ASCII character constants
+    =003A                   34  COLON    EQU   ':'      ; ASCII Colon (for prompt)
+    =002C                   35  COMMA    EQU   $2C      ; ASCII Comma character
+    =0020                   36  SPACE    EQU   $20      ; ASCII Space character
+    =000D                   37  CR       EQU   $0D      ; ASCII Carriage Return
+    =001B                   38  ESC      EQU   $1B      ; ASCII ESCape character
+    =0004                   39  EOT      EQU   $04      ; ASCII End Of Transmission char
+    =0007                   40  BELL     EQU   $07      ; ASCII code to ring ouput Bell.
+                            41  
+                            42  ;    b) "system" objects (I/O registers, monitor routines, etc.)
+                            43  
+                            44  * BUFFALO utility routine entry points
+    =FFC7                   45  OUTSTRG  EQU   $FFC7    ; string output routine
+    =FFCD                   46  INCHAR   EQU   $FFCD    ; character input routine
+    =FFB8                   47  OUTA     EQU   $FFB8    ; character output routine
+                            48  
+                            49  ;    c) memory map equates
+                            50  
+    =2000                   51  CODE     EQU   $2000    ; 32K RAM (U5) on CME11E9-EVBU board
+                            52  
+                            53  ******************************************************************
+                            54  
+                            55  ******************************************************************
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 12:57:55
+Lab 8 - Demo Program                                                                                      Page 2
+
+
+                            56  * 3) CODE section - actual program code
+                            57  
+2000                        58           ORG   CODE     ; tell assembler where to begin object code
+                            59          
+                            60  ; main program body.
+    =2000                   61  Main     EQU   *
+2000 CE 20 54          3~   62           LDX   #GREET   ; point X to greeting string
+2003 BD FF C7          6~   63           JSR   OUTSTRG  ; call BUFFALO rtn to output it
+                            64          
+2006 86 3A             2~   65  PROMPT   LDAA  #COLON   ; Output colon prompt character
+2008 BD FF B8          6~   66           JSR   OUTA
+                            67          
+200B BD FF CD          6~   68  INPUT    JSR   INCHAR   ; get user input char     
+200E 81 1B             2~   69           CMPA  #ESC     ; is it ESCape char?
+2010 27 33             3~   70           BEQ   EXIT     ; exit program if so
+                            71           
+                            72  * Program changes to detect non-printing input char.
+2012 81 21             2~   73           CMPA  #'!      ; If char is exclamation or greater,
+2014 2C 07             3~   74           BGE   DISPLAY  ; go process the character
+                            75           
+2016 86 07             2~   76           LDAA  #BELL    ; otherwise ring the BELL.
+2018 BD FF B8          6~   77           JSR   OUTA
+                            78           
+201B 20 EE             3~   79           BRA   INPUT    ; then just go get another input char. 
+                            80          
+201D 16                2~   81  DISPLAY  TAB            ; save a copy in B
+                            82          
+                            83          ; NOTE: Input character is last character showing on screen.
+                            84          
+201E 86 2D             2~   85           LDAA  #'-      ; output "-1=" 
+2020 8D 24             6~   86           BSR   OneEQ    
+                            87          
+2022 17                2~   88           TBA            ; recall input char to A
+2023 4A                2~   89           DECA           ; Get previous ASCII char
+2024 BD FF B8          6~   90           JSR   OUTA     ; and output it.
+                            91          
+2027 86 2C             2~   92           ldaa  #COMMA   ; Output Comma 
+2029 BD FF B8          6~   93           JSR   OUTA        
+202C 86 20             2~   94           LDAA  #SPACE   ; Output space 
+202E BD FF B8          6~   95           JSR   OUTA
+                            96          
+2031 17                2~   97           TBA            ; recall input char to A again
+2032 BD FF B8          6~   98           JSR   OUTA     ; and output it
+                            99          
+2035 86 2B             2~  100           LDAA  #'+      ; output "+1=" 
+2037 8D 0D             6~  101           BSR   OneEQ   
+                           102          
+2039 17                2~  103           TBA            ; recall input char to A
+203A 4C                2~  104           INCA           ; Get char following input char
+203B BD FF B8          6~  105           JSR   OUTA     ; and output that
+                           106          
+203E 86 0D             2~  107           LDAA  #CR      ; output ASCII CR to advance to next line
+2040 BD FF B8          6~  108           JSR   OUTA    
+                           109          
+2043 20 C1             3~  110           BRA   PROMPT   ; loop back to prompt for next char
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 12:57:55
+Lab 8 - Demo Program                                                                                      Page 3
+
+
+                           111          
+2045 3F               14~  112  EXIT     SWI            ; End prog & return to BUFFALO monitor
+                           113  
+                           114           PAGE
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 12:57:55
+Lab 8 - Demo Program                                                                                      Page 4
+
+
+                           115  ; place various subroutines next
+                           116  
+                           117  * This subroutine outputs the char in A followed by "1=".
+                           118  * It is used to output "+1=" and "-1=" strings needed to
+                           119  * format the output to the user.
+                           120  *
+                           121  *   Register A - on input, contains an ASCII character which
+                           122  *               is output before the "1=" string.
+                           123  
+    =2046                  124  OneEQ    EQU   *
+2046 BD FF B8          6~  125           JSR   OUTA     ; output existing char in A
+                           126          
+2049 86 31             2~  127           LDAA  #'1      ; output '1'
+204B BD FF B8          6~  128           JSR   OUTA
+204E 86 3D             2~  129           LDAA  #'=      ; output '='
+2050 BD FF B8          6~  130           JSR   OUTA
+                           131          
+2053 39                5~  132           RTS            ; and return to caller after BSR
+                           133          
+                           134  ******************************************************************
+                           135  
+                           136  ******************************************************************
+                           137  * 4) DATA section - variables & other data used by program
+                           138  
+                           139  ;    a) Constant data definitions (FCB,FDB,FCC)...
+                           140  ;       (Constants may be defined following program code area.)
+                           141  
+                           142  * define program greeting message
+                           143  
+2054 57 65 6C 63 6F 6D     144  GREET    FCB   "Welcome from Andrew Bissell to the Lab8Mod",CR
+205A 65 20 66 72 6F 6D
+2060 20 41 6E 64 72 65
+2066 77 20 42 69 73 73
+206C 65 6C 6C 20 74 6F
+2072 20 74 68 65 20 4C
+2078 61 62 38 4D 6F 64
+207E 0D
+207F 49 66 20 61 6E 20     145           FCB   "If an input is less than the '!' ASCII CHAR a warning bell will chime!.",CR
+2085 69 6E 70 75 74 20
+208B 69 73 20 6C 65 73
+2091 73 20 74 68 61 6E
+2097 20 74 68 65 20 27
+209D 21 27 20 41 53 43
+20A3 49 49 20 43 48 41
+20A9 52 20 61 20 77 61
+20AF 72 6E 69 6E 67 20
+20B5 62 65 6C 6C 20 77
+20BB 69 6C 6C 20
+20C7 50 72 65 73 73 20     146           FCB   "Press ESCape to exit, any other char to [display].",CR
+20CD 45 53 43 61 70 65
+20D3 20 74 6F 20 65 78
+20D9 69 74 2C 20 61 6E
+20DF 79 20 6F 74 68 65
+20E5 72 20 63 68 61 72
+20EB 20 74 6F 20 5B 64
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 12:57:55
+Lab 8 - Demo Program                                                                                      Page 5
+
+
+20F1 69 73 70 6C 61 79
+20F7 5D 2E 0D
+20FA 04                    147           FCB   EOT        
+                           148  
+                           149  ******************************************************************
+                           150  
+                           151  ; end of assembly source code
+20FB                       152           END
+    Cycles Counted:  158
+
+------------
+ 152 Lines
+   0 Errors
+   0 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         3/25/2021 12:57:55
+Lab 8 - Demo Program                                                                                      Page 6
+
+
+                                            S Y M B O L   T A B L E
+
+0007 BELL                   2000 CODE                   003A COLON                  002C COMMA                  
+000D CR                     201D DISPLAY                0004 EOT                    001B ESC                    
+2045 EXIT                   2054 GREET                  FFCD INCHAR                 200B INPUT                  
+2000 Main                   FFB8 OUTA                   FFC7 OUTSTRG                2046 OneEQ                  
+2006 PROMPT                 0020 SPACE                  
+
+  18 Symbols defined.
