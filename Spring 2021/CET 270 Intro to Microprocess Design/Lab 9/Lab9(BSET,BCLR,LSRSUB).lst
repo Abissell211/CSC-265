@@ -1,0 +1,298 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/05/2021 14:29:40
+Lab 9                                                                                                     Page 1
+
+
+                             1          TTL     "Lab 9"
+                             2  
+                             3  ********************************************************************
+                             4  * 1) HEADER block - overall info about the program
+                             5  
+                             6  * Project name:   Lab9
+                             7  * Author(s):      Andrew Bissell
+                             8  * Date:           04/01/2021
+                             9  * Description:
+                            10  *   This program 
+                            11  *
+                            12  ********************************************************************
+                            13  * 2) EQUATE section - define symbolic names for various values     *
+                            14  ********************************************************************
+                            15  
+                            16  ;    a) constants...
+    =000D                   17  CR      EQU     $0D     ;ASCII Carriage Return (To create a newline on output)
+    =0004                   18  EOT     EQU     $04     ;ASCII for End Of Transmission (Use with OUTSTRG)
+    =001B                   19  ESC     EQU     $1B     ;ASCII for Escape (For quitting the program)
+    =0007                   20  BELL    EQU     $07     ;ASCII code to ring ouput Bell. (For ERRORS in input)
+                            21  
+                            22  * BUFFALO utility routine entry points
+    =FFB8                   23  OUTA    EQU     $FFB8   ;BUFFALO rtn to output char in acc A
+    =FFC7                   24  OUTSTRG EQU     $FFC7   ;BUFFALO OUTSTRING Subroutine (Makes use of EOT constant)
+    =FFCD                   25  INCHAR  EQU     $FFCD   ;BUFFALO INCHAR Subroutine
+                            26  
+                            27  ;    c) memory map equates
+                            28  
+    =0000                   29  RWDATA  EQU     $0000   ;Where to place read/write(RAM) variables
+    =2000                   30  CODE    EQU     $2000   ;Where to start placing program object code
+                            31                          ;32K RAM (U5) on CME11E9-EVBU board
+                            32  
+                            33  ********************************************************************
+                            34  * 3) CODE section - Main program code                              *
+                            35  ********************************************************************
+                            36  
+2000                        37          ORG     CODE    ; tell assembler where to begin object code
+                            38          
+    =2000                   39  Main    EQU     *       ;Define label for start of Main program.
+                            40  
+2000 CE 20 B8          3~   41          LDX     #GREET  
+2003 BD FF C7          6~   42          JSR     OUTSTRG ; Displays the welcome message.
+                            43  ;                         "Welcome to the CHAR to ASCII Value Converter!"
+                            44          
+2006 CE 20 E7          3~   45  Prompt  LDX     #PROMP
+2009 BD FF C7          6~   46          JSR     OUTSTRG ; Displays the prompt message.
+                            47  ;                         "Enter a Character (ESC to Exit): "
+                            48          
+200C BD FF CD          6~   49          JSR     INCHAR  ; Gets the users inputted CHAR.
+200F 81 1B             2~   50          CMPA    #ESC    ; Checks if the user input was an ESC.
+2011 27 2D             3~   51          BEQ     Exit    ; If the input is ESC Exit the program.
+                            52          
+                            53  ******** Program checks to detect non-printing input char. ********
+2013 81 21             2~   54          CMPA    #'!     ; If CHAR is exclamation or greater,
+2015 2C 0D             3~   55          BGE     Display ; go process the character
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/05/2021 14:29:40
+Lab 9                                                                                                     Page 2
+
+
+                            56          
+2017 86 07             2~   57          LDAA    #BELL   ; If CHAR is not warn user with bell tone.
+2019 BD FF B8          6~   58          JSR     OUTA
+201C CE 21 09          3~   59          LDX     #WARN  
+201F BD FF C7          6~   60          JSR     OUTSTRG ; Displays the warning message.
+                            61  ;                         "ERROR!!! NON-PRINTABLE CHAR ENTERED!"
+                            62           
+2022 20 E2             3~   63          BRA     Prompt  ; Return to prompt to get a new user input.
+                            64  *******************************************************************   
+                            65          
+2024 16                2~   66  Display TAB             ; Transfers contents of ACCA to ACCB
+                            67          
+2025 CE 21 2F          3~   68          LDX     #DSPLYC
+2028 BD FF C7          6~   69          JSR     OUTSTRG ; Displays the user character message.
+                            70  ;                         "The character entered was: "
+202B 17                2~   71          TBA             ; Puts B into A
+202C BD FF B8          6~   72          JSR     OUTA    ; Displays the inputted CHAR to user.
+                            73          
+202F CE 21 4B          3~   74          LDX     #DSPLYH
+2032 BD FF C7          6~   75          JSR     OUTSTRG ; Displays the user character ASCII value message.
+                            76  ;                         "The character's ASCII value is: "        
+                            77          
+2035 BD 20 4D          6~   78          JSR     CHA2ASC ; Jump to Character to ASCII Value Subroutine 
+                            79  ;                         (Will display the ASCII value to user in subroutine)
+                            80          
+2038 CE 21 92          3~   81          LDX     #NEWLN
+203B BD FF C7          6~   82          JSR     OUTSTRG ; Creates a newline to clean up display for user.
+203E 20 C6             3~   83          BRA     Prompt  ; Returns back to the prompt to get new user input.
+                            84        
+2040 CE 21 92          3~   85  Exit    LDX     #NEWLN
+2043 BD FF C7          6~   86          JSR     OUTSTRG ; Creates a newline to clean up display for user.
+2046 CE 21 6D          3~   87          LDX     #GDBY
+2049 BD FF C7          6~   88          JSR     OUTSTRG ; Displays the Goodbye message.
+                            89  ;                         "Program Terminated Have a good Day!"         
+                            90        
+204C 3F               14~   91          SWI             ; return to BUFFALO monitor on HC11EVB
+                            92          
+                            93  *******************************************************************
+                            94  *  Character to ASCII Value Subroutine -CHA2ASC-                  *
+                            95  *******************************************************************
+                            96  * This Subroutine takes a user inputed CHAR and converts it into
+                            97  *  it's proper ASCII Hex Value.
+                            98  * Parameters: The Input CHAR in ACCA
+                            99  *             Computes MSB hex value for ASCII CHAR and prints MSB,
+                           100  *              then LSB and prints LSB.
+                           101  *             CCR will be changed in here
+                           102  
+    =204D                  103  CHA2ASC EQU     *       ; Start of subroutine.
+                           104  
+                           105  ************************** MSB Processing **************************
+204D 17                2~  106          TBA
+204E BD 20 B3          6~  107          JSR     LSRBYTE ; Jump to Logical Shift Right One Byte.
+                           108          
+2051 B7 00 00          4~  109          STAA    HEXVAL  ; Store the new ACCA value to variable to use BSET ($0X)
+**** Warning  Lab9(BSET,BCLR,LSRSUB).asm, line 110: Can't force word, direct address only
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/05/2021 14:29:40
+Lab 9                                                                                                     Page 3
+
+
+2054 14 00 30          6~  110          BSET    HEXVAL $30 ; Sets the MSB to a three.                         ($3X)
+2057 B6 00 00          4~  111          LDAA    HEXVAL  ; Stores the final MSB value to ACCA.
+205A BD FF B8          6~  112          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+                           113  
+                           114  ************************** LSB Processing **************************        
+205D 17                2~  115          TBA             ; Transfer original value of ACCA from ACCB back to ACCA.
+205E B7 00 00          4~  116          STAA    HEXVAL  ; Store the value of ACCA to the variable to use BSET/BCLR.
+**** Warning  Lab9(BSET,BCLR,LSRSUB).asm, line 117: Can't force word, direct address only
+2061 15 00 F0          6~  117          BCLR    HEXVAL $F0 ; Clears the MSB.                                  ($0X)
+2064 B6 00 00          4~  118          LDAA    HEXVAL  ; Loads ACCA with the new value. 
+                           119          
+2067 81 0A             2~  120          CMPA    #$0A    ; If the value is equal to $A, go process the A.
+2069 27 1F             3~  121          BEQ     LetA
+                           122          
+206B 81 0B             2~  123          CMPA    #$0B    ; If the value is equal to $B, go process the B.
+206D 27 22             3~  124          BEQ     LetB
+                           125  
+206F 81 0C             2~  126          CMPA    #$0C    ; If the value is equal to $C, go process the C.
+2071 27 25             3~  127          BEQ     LetC
+                           128          
+2073 81 0D             2~  129          CMPA    #$0D    ; If the value is equal to $D, go process the D.
+2075 27 28             3~  130          BEQ     LetD
+                           131          
+2077 81 0E             2~  132          CMPA    #$0E    ; If the value is equal to $E, go process the E.
+2079 27 2B             3~  133          BEQ     LetE
+                           134          
+207B 81 0F             2~  135          CMPA    #$0F    ; If the value is equal to $F, go process the F.
+207D 27 2E             3~  136          BEQ     LetF        
+                           137          
+**** Warning  Lab9(BSET,BCLR,LSRSUB).asm, line 138: Can't force word, direct address only
+207F 14 00 30          6~  138          BSET    HEXVAL $30 ; else continue process since: X != A <-> F.
+2082 B6 00 00          4~  139          LDAA    HEXVAL  ; Reload ACCA with the final LSB value.
+2085 BD FF B8          6~  140          JSR     OUTA    ; Call BuFFALO rtn to output ACCA. 
+2088 20 28             3~  141          BRA     Fin     ; Skip to the end of Subroutine.
+                           142          
+208A 86 41             2~  143  LetA    LDAA    #$41    ; Directly load an A into the LSB.
+208C BD FF B8          6~  144          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+208F 20 21             3~  145          BRA     Fin     ; Skip to the end of Subroutine.
+                           146  
+2091 86 42             2~  147  LetB    LDAA    #$42    ; Directly load an B into the LSB.
+2093 BD FF B8          6~  148          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+2096 20 1A             3~  149          BRA     Fin     ; Skip to the end of Subroutine.
+                           150          
+2098 86 43             2~  151  LetC    LDAA    #$43    ; Directly load an C into the LSB.
+209A BD FF B8          6~  152          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+209D 20 13             3~  153          BRA     Fin     ; Skip to the end of Subroutine.
+                           154          
+209F 86 44             2~  155  LetD    LDAA    #$44    ; Directly load an D into the LSB.
+20A1 BD FF B8          6~  156          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+20A4 20 0C             3~  157          BRA     Fin     ; Skip to the end of Subroutine.
+                           158          
+20A6 86 45             2~  159  LetE    LDAA    #$45    ; Directly load an E into the LSB.
+20A8 BD FF B8          6~  160          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+20AB 20 05             3~  161          BRA     Fin     ; Skip to the end of Subroutine.
+                           162       
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/05/2021 14:29:40
+Lab 9                                                                                                     Page 4
+
+
+20AD 86 46             2~  163  LetF    LDAA    #$46    ; Directly load an F into the LSB.
+20AF BD FF B8          6~  164          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+                           165          
+20B2 39                5~  166  Fin     RTS             ; Returns back to program 
+                           167  ;                         (MSB and LSB already displayed)
+                           168  
+                           169  *******************************************************************
+                           170  *  Logical Shift Right One Byte -LSRBYTE-                         *
+                           171  *******************************************************************
+                           172  * This Subroutine shifts the entire MSB (of a two Byte value) to 
+                           173  *  the LSB with the new MSB equal to zero.
+                           174  * Parameters: The Input CHAR in ACCA
+                           175  *             Moves MSB to the LSB, MSB now equal zero
+                           176  *             CCR will be changed in here
+                           177  
+    =20B3                  178  LSRBYTE EQU     *
+                           179  
+20B3 44                2~  180          LSRA               ; Logical Shift Right ACC A 1st time 
+20B4 44                2~  181          LSRA               ;                           2nd time
+20B5 44                2~  182          LSRA               ;                           3rd time
+20B6 44                2~  183          LSRA               ;                           4th time
+                           184          
+20B7 39                5~  185          RTS                ; Return
+                           186          
+                           187  ********************************************************************
+                           188  * 4) DATA section - variables & other data used by program         *
+                           189  ********************************************************************
+                           190  
+                           191  ;    a) constant data definitions (FCB,FDB,FCC)...
+                           192  
+20B8 57 65 6C 63 6F 6D     193  GREET   FCB     "Welcome to the CHAR to ASCII Value Converter!",CR,EOT
+20BE 65 20 74 6F 20 74
+20C4 68 65 20 43 48 41
+20CA 52 20 74 6F 20 41
+20D0 53 43 49 49 20 56
+20D6 61 6C 75 65 20 43
+20DC 6F 6E 76 65 72 74
+20E2 65 72 21 0D 04
+20E7 45 6E 74 65 72 20     194  PROMP   FCB     "Enter a Character (ESC to Exit): ",EOT
+20ED 61 20 43 68 61 72
+20F3 61 63 74 65 72 20
+20F9 28 45 53 43 20 74
+20FF 6F 20 45 78 69 74
+2105 29 3A 20 04
+2109 45 52 52 4F 52 21     195  WARN    FCB     "ERROR!!! NON-PRINTABLE CHAR ENTERED!",CR,EOT
+210F 21 21 20 4E 4F 4E
+2115 2D 50 52 49 4E 54
+211B 41 42 4C 45 20 43
+2121 48 41 52 20 45 4E
+2127 54 45 52 45 44 21
+212D 0D 04
+212F 54 68 65 20 63 68     196  DSPLYC  FCB     "The character entered was: ",EOT
+2135 61 72 61 63 74 65
+213B 72 20 65 6E 74 65
+2141 72 65 64 20 77 61
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/05/2021 14:29:40
+Lab 9                                                                                                     Page 5
+
+
+2147 73 3A 20 04
+214B 54 68 65 20 63 68     197  DSPLYH  FCB     "The character's ASCII value is: $",EOT
+2151 61 72 61 63 74 65
+2157 72 27 73 20 41 53
+215D 43 49 49 20 76 61
+2163 6C 75 65 20 69 73
+2169 3A 20 24 04
+216D 50 72 6F 67 72 61     198  GDBY    FCB     "Program Terminated Have a good Day!",CR,EOT
+2173 6D 20 54 65 72 6D
+2179 69 6E 61 74 65 64
+217F 20 48 61 76 65 20
+2185 61 20 67 6F 6F 64
+218B 20 44 61 79 21 0D
+2191 04
+                           199  
+2192 0D 04                 200  NEWLN   FCB     "",CR,EOT
+                           201  
+                           202  ;    b) variable data allocations (RMB)...
+                           203  
+0000                       204          ORG     RWDATA
+                           205         
+0000 (0001)                206  HEXVAL  RMB     1          ; Variable used in conjunction with ACCA to 
+                           207  ;                            display the proper ASCII Value, also to use
+                           208  ;                            BSET and BCLR.
+                           209  
+                           210  *********************************************************************
+                           211  
+                           212  ; End of assembly source code
+0001                       213          END
+    Cycles Counted:  306
+
+------------
+ 213 Lines
+   0 Errors
+   3 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/05/2021 14:29:40
+Lab 9                                                                                                     Page 6
+
+
+                                            S Y M B O L   T A B L E
+
+0007 BELL                   204D CHA2ASC                2000 CODE                   000D CR                     
+212F DSPLYC                 214B DSPLYH                 2024 Display                0004 EOT                    
+001B ESC                    2040 Exit                   20B2 Fin                    216D GDBY                   
+20B8 GREET                  0000 HEXVAL                 FFCD INCHAR                 20B3 LSRBYTE                
+208A LetA                   2091 LetB                   2098 LetC                   209F LetD                   
+20A6 LetE                   20AD LetF                   2000 Main                   2192 NEWLN                  
+FFB8 OUTA                   FFC7 OUTSTRG                20E7 PROMP                  2006 Prompt                 
+0000 RWDATA                 2109 WARN                   
+
+  30 Symbols defined.
