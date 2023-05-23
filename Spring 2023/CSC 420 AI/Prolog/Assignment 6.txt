@@ -1,0 +1,151 @@
+% Group Assignment 6
+% Group #3
+% Andrew Bissell
+% Daniel Nash
+% Kevin Reisch
+%--------------------------------------------------------%
+%---------------------Relation Facts---------------------%
+%--------------------------------------------------------%
+male(george).
+male(spencer).
+male(philip).
+male(charles).
+male(mark).
+male(andrew).
+male(edward).
+male(william).
+male(harry).
+male(peter).
+male(eugenie).
+male(james).
+
+female(mum).
+female(kydd).
+female(elizabeth).
+female(margaret).
+female(diana).
+female(anne).
+female(sarah).
+female(sophie).
+female(zara).
+female(beatrice).
+female(louise).
+
+spouse(george, mum).
+spouse(mum, george).
+spouse(spencer, kydd).
+spouse(kydd, spencer).
+spouse(elizabeth, philip).
+spouse(philip, elizabeth).
+spouse(diana, charles).
+spouse(charles, diana).
+spouse(anne, mark).
+spouse(mark, anne).
+spouse(andrew, sarah).
+spouse(sarah, andrew).
+spouse(edward, sophie).
+spouse(sophie, edward).
+
+child(elizabeth, george).
+child(margaret, george).
+child(elizabeth, mum).
+child(margaret, mum).
+child(diana, spencer).
+child(diana, kydd).
+child(charles, elizabeth).
+child(anne, elizabeth).
+child(andrew, elizabeth).
+child(edward, elizabeth).
+child(charles, philip).
+child(anne, philip).
+child(andrew, philip).
+child(edward, philip).
+child(william, diana).
+child(harry, diana).
+child(peter, anne).
+child(zara, anne).
+child(peter, mark).
+child(zara, mark).
+child(beatrice, andrew).
+child(eugenie, andrew).
+child(beatrice, sarah).
+child(eugenie, sarah).
+child(louise, edward).
+child(james, edward).
+child(louise, sophie).
+child(james, sophie).
+child(william, charles).
+child(harry, charles).
+%--------------------------------------------------------%
+%---------------------Relation Rules---------------------%
+%--------------------------------------------------------%
+
+% Biological siblings will have the same mother and father
+% The siblings can't be the same person
+	sibling(Sibling1, Sibling2) :- 	father(Father, Sibling1), father(Father, Sibling2), 
+					mother(Mother, Sibling1), mother(Mother, Sibling2), 
+					\+(Sibling1 == Sibling2).
+
+% Father is male and has a child
+	mother(Mother, Child) :- female(Mother), child(Child, Mother).
+
+% Mother is female and has a child
+	father(Father, Child) :- male(Father), child(Child, Father).
+
+% A brother is male and has a sibling
+% The siblings can't be the same person
+	brother(Sibling1, Sibling2) :- 	sibling(Sibling1, Sibling2), 
+					male(Sibling1),	\+(Sibling1 == Sibling2).
+	
+% A sister is female and has a sibling
+% The siblings can't be the same person
+	sister(Sibling1, Sibling2) :-	sibling(Sibling1, Sibling2), 
+					female(Sibling1),\+(Sibling1 == Sibling2).
+
+% A son is male and is a child of a parent
+	son(Son, Parent) :- male(Son), child(Son, Parent).
+
+% A daughter is female and is a child of a parent
+	daughter(Daughter, Parent) :- female(Daughter), child(Daughter, Parent).
+
+% Two sisters are siblings and are both female.
+% The sisters can't be the same person
+	two_sisters(Sister1, Sister2) :- 	sibling(Sister1, Sister2),
+						female(Sister1), female(Sister2), \+(Sister1 == Sister2).
+
+% Two brothers are siblings and are both male.
+% The brothers can't be the same person
+	two_brothers(Brother1, Brother2) :- 	sibling(Brother1, Brother2),
+						male(Brother1), male(Brother2), \+(Brother1 == Brother2).
+
+% Biological siblings will have the same mother and father
+% the siblings can't be the same person
+	three_siblings(Sibling1, Sibling2, Sibling3) :- 	father(Father, Sibling1), father(Father, Sibling2), father(Father, Sibling3),
+								mother(Mother, Sibling1), mother(Mother, Sibling2), mother(Mother, Sibling3),
+								\+(Sibling1 == Sibling2), \+(Sibling1 == Sibling3), \+(Sibling2 == Sibling3).
+
+% A person is married to another different person
+	married(Person) :- spouse(Person, _).
+
+% Grandchild is a child of a parent and the parent is a child of a grandparent.
+	grandchild(Grandchild, Grandparent) :- child(Parent, Grandparent), child(Grandchild, Parent).
+
+% Great_Grandparent is a parent to a child, that has a child, which then has its own child.	
+	great_grandparent(GGp, GGc) :- child(Grandparent, GGp), child(Parent, Grandparent), child(GGc, Parent).
+
+% Brother in law is male and its spouse has a sibling.
+	brother_in_law(Sibling_law1, Sibling_law2) :- male(Sibling_law1), spouse(Sibling_law1, Spouse), sibling(Spouse, Sibling_law2).
+
+% Sister in law is female and its spouse has a sibling.
+	sister_in_law(Sibling_law1, Sibling_law2) :- female(Sibling_law1), spouse(Sibling_law1, Spouse), sibling(Spouse, Sibling_law2).
+
+% An aunt is a female sibling, where the sibling has a child.
+	aunt(Aunt, Niece_Nephew) :- female(Aunt), sibling(Aunt, Sibling), child(Niece_Nephew, Sibling).
+
+% An uncle is a male sibling, where the sibling has a child.
+	uncle(Uncle, Niece_Nephew) :- male(Uncle), sibling(Uncle, Sibling), child(Niece_Nephew, Sibling).
+
+% The two children have the same parent but does not have three siblings.
+% The two children can't be the same person	
+	has_exactly_two_children(Parent, Child1, Child2) :- 	child(Child1, Parent), child(Child2, Parent),
+								\+three_siblings(_, Child1, Child2), \+(Child1 == Child2).
