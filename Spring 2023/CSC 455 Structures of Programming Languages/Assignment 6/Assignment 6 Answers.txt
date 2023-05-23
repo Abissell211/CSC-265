@@ -1,0 +1,14 @@
+Passed by value
+
+list[0] = 1
+list[1] = 3
+
+Passed by reference
+
+list[0] = 2
+list[1] = 6
+
+Passed by value-result
+
+list[0] = 2
+list[1] = 6
