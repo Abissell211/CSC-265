@@ -1,0 +1,482 @@
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 1
+
+
+                             1          TTL     "Exam 02 - Student Grade Program"
+                             2  
+                             3  ****************************************************************************
+                             4  * 1) HEADER block - overall info about the program
+                             5  
+                             6  * Project name: StudentGrade
+                             7  * Author(s):    Andrew D. Bissell
+                             8  * Date:         04/19/2021
+                             9  * Description:
+                            10  *   This program needs a username to access the data for student grades. If
+                            11  *    the correct username is given, access to the average, minimum and maximum 
+                            12  *    grades will be availible.
+                            13  *
+                            14  ****************************************************************************
+                            15  * 2) EQUATE section - define symbolic names for various values             *
+                            16  ****************************************************************************
+                            17  ;    a) constants...
+    =000D                   18  CR       EQU     $0D       ;ASCII Carriage Return (To create a newline on output)
+    =0004                   19  EOT      EQU     $04       ;ASCII for End Of Transmission (Use with OUTSTRG)
+    =001B                   20  ESC      EQU     $1B       ;ASCII for Escape (For quitting the program)
+                            21  
+                            22  ;    b) "system" objects (I/O registers, monitor routines, etc.)
+                            23  * BUFFALO utility routine entry points
+    =FFB8                   24  OUTA     EQU     $FFB8    ;BUFFALO rtn to output char in acc A
+    =FFC7                   25  OUTSTRG  EQU     $FFC7    ;BUFFALO rtn to output a string
+    =FFCD                   26  INCHAR   EQU     $FFCD    ;BUFFALO rtn to take a user input CHAR
+                            27  
+                            28  ;    c) memory map equates
+    =0000                   29  USERDATA EQU     $0000    ;Where to place read/write(RAM) variables
+    =2000                   30  CODE     EQU     $2000    ;Where to start placing program object code
+                            31                            ;32K RAM (U5) on CME11E9-EVBU board
+                            32  ****************************************************************************
+                            33  * 3) CODE section - actual program code                                    *
+                            34  ****************************************************************************
+2000                        35           ORG     CODE    ; Tell assembler where to begin object code.
+                            36          
+    =2000                   37  Main     EQU     *       ; Define label for start of Main program.
+                            38  
+2000 CE 21 42          3~   39           LDX     #Greet  
+2003 BD FF C7          6~   40           JSR     OUTSTRG ; Displays the welcome message.
+                            41  ;                         "Welcome please enter you username to access grades: "
+2006 20 19             3~   42           BRA     Promp   ; Skip error messages and begin inputs.
+                            43           
+                            44  ***************************** ERROR MESSAGES! ******************************         
+2008 CE 21 B9          3~   45  ErrMsg   LDX     #ErrNoMat
+200B BD FF C7          6~   46           JSR     OUTSTRG  ; Displays the error message for usernames not matching.
+                            47  ;                          "ERROR!!! Usernames do not match please try again!"
+200E 5F                2~   48           CLRB             ; Clear ACCB used to check for errors.
+200F 7A 00 2B          6~   49           DEC     UNcount  ; Decrements the variable digtcount to keep the division count.
+2012 26 0D             3~   50           BNE     Promp    ; Go to try username again. 
+                            51           
+2014 CE 21 ED          3~   52           LDX     #TMErr 
+2017 BD FF C7          6~   53           JSR     OUTSTRG  ; Displays the error message for to many inputs.
+                            54  ;                          "Too many incorrect inputs!"           
+201A 86 03             2~   55           LDAA    #$03     ; Load ACCA with the reset for UNcount.
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 2
+
+
+201C B7 00 2B          4~   56           STAA    UNcount  ; Reset the UNcount.
+201F 20 47             3~   57           BRA     Quit     ; Move to Quit message and SWI.
+                            58  ****************************** Username Input ******************************         
+2021 5F                2~   59  Promp    CLRB     
+2022 CE 00 10          3~   60           LDX     #UsName  ; Loads the username memory locations in index x.
+2025 BD 20 6F          6~   61           JSR     INSERUNA ; Jumps to the insert username subroutine.
+                            62           
+2028 81 1B             2~   63           CMPA    #ESC
+202A 27 3C             3~   64           BEQ     Quit
+                            65           
+202C BD 20 8C          6~   66           JSR     CHKUN    ; Jumps to the check Username subroutine.
+                            67           
+202F C1 FF             2~   68           CMPB    #$FF     ; Checks if there was an error in the previous subroutine. 
+2031 27 D5             3~   69           BEQ     ErrMsg   ; If there was an error display the usernames do not match error.
+                            70  
+2033 86 03             2~   71           LDAA    #$03     ; Load ACCA with the reset for UNcount.
+2035 B7 00 2B          4~   72           STAA    UNcount  ; Reset the UNcount.
+                            73  
+2038 CE 21 77          3~   74  InLoop   LDX     #Prompt
+203B BD FF C7          6~   75           JSR     OUTSTRG  ; Displays the prompt message.
+                            76  
+203E BD FF CD          6~   77           JSR     INCHAR   ; Get a input from the user to go to the various subroutines or quit.
+                            78           
+2041 81 1B             2~   79           CMPA    #ESC     ; Checks if the input is a quit command.
+2043 27 23             3~   80           BEQ     Quit     ; If it is branch to quit message and SWI.
+                            81           
+2045 81 41             2~   82           CMPA    #'A'     ; Checks if the input is a Average command.
+2047 27 10             3~   83           BEQ     Average  ; If it is branch to the average subroutine.
+                            84           
+2049 81 4E             2~   85           CMPA    #'N'     ; Checks if the input is a Minimum command.
+204B 27 11             3~   86           BEQ     Minimum  ; If it is branch to the minimum subroutine.
+                            87           
+204D 81 58             2~   88           CMPA    #'X'     ; Checks if the input is a Maximum command.
+204F 27 12             3~   89           BEQ     Maximum  ; If it is branch to the maximum subroutine.
+                            90           
+2051 CE 22 08          3~   91           LDX     #ErrInp  ; If none of the above load error message.
+2054 BD FF C7          6~   92           JSR     OUTSTRG  ; Output Error message for incorrect input.
+                            93  ;                          
+2057 20 DF             3~   94           BRA     InLoop   ; Move back to get new input.
+                            95           
+2059 BD 20 A2          6~   96  Average  JSR     GrdAve   ; Jump to subroutine to get grade average.
+205C 20 DA             3~   97           BRA     InLoop   ; Once finished go back to get new input.
+                            98           
+205E BD 20 CD          6~   99  Minimum  JSR     GrdMin   ; Jump to subroutine to get minimum grade.
+2061 20 D5             3~  100           BRA     InLoop   ; Once finished go back to get new input.
+                           101           
+2063 BD 20 F8          6~  102  Maximum  JSR     GrdMax   ; Jump to subroutine to get maximum gr
+2066 20 D0             3~  103           BRA     InLoop   ; Once finished go back to get new input.
+                           104                 
+2068 CE 22 75          3~  105  Quit     LDX     #QuitMess 
+206B BD FF C7          6~  106           JSR     OUTSTRG  ; Displays the quit message.
+                           107  ;                          "Program Terminated! Have a great day!"
+                           108  
+206E 3F               14~  109           SWI              ; Return to BUFFALO monitor on HC11EVB.
+                           110  ****************************************************************************
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 3
+
+
+                           111  *  Insert Username Subroutine -INSERUNA-                                   *
+                           112  ****************************************************************************
+                           113  * This Subroutine takes user inputted characters and creates a username in a
+                           114  *  location of memory.
+                           115  *
+                           116  * Parameters: Index X must point to an array of bytes to store CHARS into.
+                           117  *             ACCB is used for ERROR checks, and character count.
+                           118  ****************************************************************************
+    =206F                  119  INSERUNA EQU     *        ; Start of subroutine.
+                           120  
+206F BD FF CD          6~  121  Start1   JSR     INCHAR   ; Store the CHAR in ACCA
+                           122  
+2072 81 1B             2~  123           CMPA    #ESC     ; Checks to see if the user pressed escape (quit program).
+2074 27 0F             3~  124           BEQ     Escape   ; If the user pressed escape move to escape to quit program.
+                           125  
+2076 81 0D             2~  126           CMPA    #CR      ; Checks to see if the user pressed enter (finish username).
+2078 27 05             3~  127           BEQ     InsrEOT  ; If the user pressed enter move to insert EOT.
+                           128                  
+207A A7 00             4~  129           STAA    0,X      ; Store the CHAR in the username memory found with index x.
+207C 08                3~  130           INX              ; Increment to the next memory location.
+207D 20 F0             3~  131           BRA     Start1   ; Restart for the next user input.
+                           132          
+207F 86 04             2~  133  InsrEOT  LDAA    #EOT     ; Load the EOT CHAR in ACCA.
+2081 A7 00             4~  134           STAA    0,X      ; Stores the EOT at the next data slot.        
+2083 20 06             3~  135           BRA     Fin      ; Move to RTS.          
+                           136           
+2085 86 04             2~  137  Escape   LDAA    #EOT     ; Load ACCA with EOT to finish the username as is.
+2087 A7 00             4~  138           STAA    0,X      ; Stores EOT in the next memory location.
+2089 86 1B             2~  139           LDAA    #ESC     ; Load ACCA with the escape charater to quit once returned to main.
+                           140           
+208B 39                5~  141  Fin      RTS              ; Return from subroutine. 
+                           142  ****************************************************************************
+                           143  *  Check Username -CHKUN-                             *
+                           144  ****************************************************************************
+                           145  * This Subroutine uses the x and y index registers to check the first and second
+                           146  *     usernames character by character to see if they match.
+                           147  *  
+                           148  * Parameters: Index x points to the first username array and Index y points 
+                           149  *              to the second username array to compare against each other.
+                           150  *              ACCA is used with Index x and ACCB is used with Index y.
+                           151  *              ACCB is still used for ERROR checks (if error is found ACCB is forced
+                           152  *                                                    with $FF)
+                           153  ****************************************************************************
+    =208C                  154  CHKUN    EQU     *        ; Start of subroutine.
+                           155  
+208C CE 00 00          3~  156           LDX     #$00     ; Reset index x to zero.
+208F CE 00 10          3~  157           LDX     #UsName  ; Load the username using index x.
+2092 20 05             3~  158           BRA     Begin    ; Move to the start of the checks.
+                           159           
+2094 08                3~  160  Next     INX              ; Increment to next username CHAR.
+2095 81 04             2~  161           CMPA    #EOT     ; Check if first username has hit EOT.
+2097 27 08             3~  162           BEQ     ChkStop  ; If it does move to the end of subroutine.
+                           163           
+2099 A6 00             4~  164  Begin    LDAA    0,X      ; Load ACCA with the character found at x index.
+209B A1 0F             4~  165           CMPA    15,X     ; Check if the characters for the first and second 
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 4
+
+
+                           166           ;                 username match.
+209D 27 F5             3~  167           BEQ     Next     ; If they do, go back to check the next character.
+                           168           
+209F C6 FF             2~  169           LDAB    #$FF     ; If they don't, load ACCB with the error value(-1).     
+                           170  
+20A1 39                5~  171  ChkStop  RTS              ; Return from subroutine.
+                           172  ****************************************************************************
+                           173  *  Get Average Grade Subroutine -GrdAve-                                   *
+                           174  ****************************************************************************
+                           175  * This Subroutine takes an array of data (grades) and adds them together and
+                           176  *  divides by the number of data variables to get the average.
+                           177  *  
+                           178  * Parameters: Uses the X Index for data count.
+                           179  *             Uses the Y Index to add all the data together.
+                           180  *             Does not change the values found in data array.
+                           181  ****************************************************************************
+    =20A2                  182  GrdAve   EQU     *        ; Start of subroutine.
+                           183           
+20A2 4F                2~  184           CLRA             ; Clear ACCA for processing.
+20A3 5F                2~  185           CLRB             ; Clear ACCB for processing.
+20A4 18 CE 00 00       4~  186           LDY     #$00     ; Clear Index Y for processing.
+20A8 CE 00 00          3~  187           LDX     #Grades  ; Load Index X with the grades start location.
+                           188           
+20AB 8C 00 10          4~  189  AveStart CPX     #$10     ; Compare if it has looped through all the grades.
+20AE 27 07             3~  190           BEQ     AveStop  ; Branch to final process and output message. 
+                           191           
+20B0 E6 00             4~  192           LDAB    0,X      ; Load the current grade pointed to by Index X into ACCB.
+20B2 18 3A             4~  193           ABY              ; Adds ACCB to index Y.
+20B4 08                3~  194           INX              ; Step to the next grade.
+20B5 20 F4             3~  195           BRA     AveStart ; Branch back to start to process next grade.
+                           196                       
+20B7 18 8F             4~  197  AveStop  XGDY             ; Trades the value stored in Index Y into ACCD.
+                           198  
+20B9 05                3~  199           LSLD             ; Uses logical shift right to divide by 2.
+20BA 05                3~  200           LSLD             ;                             divide by 4.
+20BB 05                3~  201           LSLD             ;                             divide by 8.
+20BC 05                3~  202           LSLD             ;                             divide by 16.
+                           203           
+20BD FD 00 28          5~  204           STD     AVG      ; Store D into the variable Average.
+                           205           
+20C0 CE 22 2C          3~  206           LDX     #StudAve 
+20C3 BD FF C7          6~  207           JSR     OUTSTRG  ; Display the student Average output message. 
+                           208  ;                          "Students Average = $"         
+20C6 B6 00 28          4~  209           LDAA    AVG      ; Load Average in ACCA to output.
+20C9 BD 21 23          6~  210           JSR     CHA2ASC  ; Jump to Character to ASCII to output the Average to user.
+                           211           
+20CC 39                5~  212           RTS              ; Return from subroutine.
+                           213  ****************************************************************************
+                           214  *  Get Average Grade Subroutine -GrdMin-                                   *
+                           215  ****************************************************************************
+                           216  * This Subroutine takes a array of data and loops through to check and store
+                           217  *  the minimum value.
+                           218  *  
+                           219  * Parameters: Use of an array of data to check
+                           220  *             Uses the CHARASC Subroutine to output final calculation to user.
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 5
+
+
+                           221  *             Does not change the values found in data array.
+                           222  ****************************************************************************
+    =20CD                  223  GrdMin   EQU     *        ; Start of subroutine.
+                           224  
+20CD CE 00 00          3~  225           LDX     #Grades  ; Load X index with the grades start location.
+20D0 A6 00             4~  226           LDAA    0,X      ; Store the first grade in ACCA.
+20D2 B7 00 29          4~  227           STAA    MIN      ; Store the first grade as the initial Minimum.
+20D5 08                3~  228           INX              ; Step to next grade.
+                           229           
+20D6 8C 00 10          4~  230  MinStart CPX     #$10     ; Compare if it has looped through all the grades.
+20D9 27 10             3~  231           BEQ     MinStop  ; Branch to the output messages if it has.
+                           232           
+20DB A6 00             4~  233           LDAA    0,X      ; Load ACCA with the next grade.
+20DD B1 00 29          4~  234           CMPA    MIN      ; Compare that with the current Minimum.
+20E0 23 03             3~  235           BLS     StoreMin ; If the current grade is lower or the same as the 
+                           236  ;                            current Minimum go store it. 
+                           237           
+20E2 08                3~  238           INX              ; If not move to next grade.
+20E3 20 F1             3~  239           BRA     MinStart ; Go back to the start to check next grade.
+                           240              
+20E5 B7 00 29          4~  241  StoreMin STAA    MIN      ; Store the current grade as the new minimum.
+20E8 08                3~  242           INX              ; Step to next grade.
+20E9 20 EB             3~  243           BRA     MinStart ; Go back to the start to check next grade.
+                           244           
+20EB CE 22 41          3~  245  MinStop  LDX     #StudMin 
+20EE BD FF C7          6~  246           JSR     OUTSTRG  ; Display the Minimum output.
+                           247  ;                          "Minimum Student Grade = $"         
+                           248           
+20F1 B6 00 29          4~  249           LDAA    MIN      ; Load Minimum in ACCA to output.
+20F4 BD 21 23          6~  250           JSR     CHA2ASC  ; Jump to Character to ASCII to output the minimum to user.
+                           251           
+20F7 39                5~  252           RTS              ; Return from subroutine.   
+                           253  ****************************************************************************
+                           254  *  Get Average Grade Subroutine -GrdMax-                                   *
+                           255  ****************************************************************************
+                           256  * This Subroutine takes an array of data and loops through to check and store
+                           257  *  the maximum value.
+                           258  *  
+                           259  * Parameters: Use of an array of data to check.
+                           260  *             Uses the CHARASC Subroutine to output final calculation to user.
+                           261  *             Does not change the values found in data array.
+                           262  ****************************************************************************
+    =20F8                  263  GrdMax   EQU     *        ; Start of subroutine.
+                           264  
+20F8 CE 00 00          3~  265           LDX     #Grades  ; Load X index with the grades start location.
+20FB A6 00             4~  266           LDAA    0,X      ; Store the first grade in ACCA.
+20FD B7 00 2A          4~  267           STAA    MAX      ; Store the first grade as the initial Maximum.
+2100 08                3~  268           INX              ; Step to next grade.
+                           269           
+2101 8C 00 10          4~  270  MaxStart CPX     #$10     ; Compare if it has looped through all the grades.
+2104 27 10             3~  271           BEQ     MaxStop  ; Branch to the output message if it has.
+                           272           
+2106 A6 00             4~  273           LDAA    0,X      ; Load ACCA with the next grade.
+2108 B1 00 2A          4~  274           CMPA    MAX      ; Compare with the current Maximum.
+210B 24 03             3~  275           BHS     StoreMax ; If the current grade is higher or the same as the 
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 6
+
+
+                           276  ;                            current Maximum go store it.
+                           277           
+210D 08                3~  278           INX              ; If not move to next grade.
+210E 20 F1             3~  279           BRA     MaxStart ; Go back to the start to check next grade.
+                           280           
+2110 B7 00 2A          4~  281  StoreMax STAA    MAX      ; Store the current grade as the new Maximum.
+2113 08                3~  282           INX              ; Step to next grade.
+2114 20 EB             3~  283           BRA     MaxStart ; Go back to the start to check next grade.
+                           284           
+2116 CE 22 5B          3~  285  MaxStop  LDX     #StudMax 
+2119 BD FF C7          6~  286           JSR     OUTSTRG  ; Display the Maximum output.
+                           287  ;                          "Maximum Student Grade = $"
+                           288           
+211C B6 00 2A          4~  289           LDAA    MAX      ; Load Maximum in ACCA to output.
+211F BD 21 23          6~  290           JSR     CHA2ASC  ; Jump to Character to ASCII to output the Maximum to user.
+                           291  
+2122 39                5~  292           RTS              ; Return from subroutine.   
+                           293  ****************************************************************************
+                           294  *  Character to ASCII Value Subroutine -CHA2ASC-                           *
+                           295  ****************************************************************************
+                           296  * This Subroutine takes a user inputed CHAR and converts it into
+                           297  *  it's proper ASCII Hex Value.
+                           298  * Parameters: The Input CHAR in ACCA
+                           299  *             Computes MSB hex value for ASCII CHAR and prints MSB,
+                           300  *              then LSB and prints LSB.
+                           301  *             CCR will be changed in here
+                           302  ****************************************************************************
+    =2123                  303  CHA2ASC EQU     *       ; Start of subroutine.
+                           304  ************************** MSB Processing **********************************
+2123 16                2~  305          TAB
+2124 44                2~  306          LSRA               ; Logical Shift Right ACC A 1st time 
+2125 44                2~  307          LSRA               ;                           2nd time
+2126 44                2~  308          LSRA               ;                           3rd time
+2127 44                2~  309          LSRA               ;                           4th time
+                           310          
+2128 8A 30             2~  311          ORA     #$30
+212A BD FF B8          6~  312          JSR     OUTA    ; Call BuFFALO rtn to output ACCA.
+                           313  ************************** LSB Processing **********************************     
+212D 17                2~  314          TBA 
+212E 84 0F             2~  315          ANDA    #$0F
+                           316          
+2130 81 0A             2~  317          CMPA    #$0A    ; If the value is equal to $A, go process the A.
+2132 2C 07             3~  318          BGE     GrtA
+                           319          
+2134 8A 30             2~  320          ORA     #$30
+2136 BD FF B8          6~  321          JSR     OUTA    ; Call BuFFALO rtn to output ACCA. 
+2139 20 06             3~  322          BRA     FinASC  ; Skip to the end of Subroutine.
+                           323          
+213B BB 00 2C          4~  324  GrtA    ADDA    AtoF
+213E BD FF B8          6~  325          JSR     OUTA
+                           326          
+2141 39                5~  327  FinASC  RTS             ; Returns back to program 
+                           328  ;                         (MSB and LSB already displayed)         
+                           329  ****************************************************************************
+                           330  * 4) DATA section - variables & other data used by program                 *
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 7
+
+
+                           331  ****************************************************************************
+                           332  ;    a) constant data definitions (FCB,FDB,FCC)...
+                           333  
+2142 57 65 6C 63 6F 6D     334  Greet    FCB      "Welcome please enter you username to access grades: ",EOT
+2148 65 20 70 6C 65 61
+214E 73 65 20 65 6E 74
+2154 65 72 20 79 6F 75
+215A 20 75 73 65 72 6E
+2160 61 6D 65 20 74 6F
+2166 20 61 63 63 65 73
+216C 73 20 67 72 61 64
+2172 65 73 3A 20 04
+2177 50 72 65 73 73 20     335  Prompt   FCB      "Press 'A' for Average, 'N' for Minimum or 'X' for Maximum Grade: ",EOT
+217D 27 41 27 20 66 6F
+2183 72 20 41 76 65 72
+2189 61 67 65 2C 20 27
+218F 4E 27 20 66 6F 72
+2195 20 4D 69 6E 69 6D
+219B 75 6D 20 6F 72 20
+21A1 27 58 27 20 66 6F
+21A7 72 20 4D 61 78 69
+21AD 6D 75 6D 20 47 72
+21B3 61 64 65 3A
+21B9 45 52 52 4F 52 21     336  ErrNoMat FCB      "ERROR!!! Usernames do not match please try again!",CR,CR,EOT
+21BF 21 21 20 55 73 65
+21C5 72 6E 61 6D 65 73
+21CB 20 64 6F 20 6E 6F
+21D1 74 20 6D 61 74 63
+21D7 68 20 70 6C 65 61
+21DD 73 65 20 74 72 79
+21E3 20 61 67 61 69 6E
+21E9 21 0D 0D 04
+21ED 54 6F 6F 20 6D 61     337  TMErr    FCB      "Too many incorrect inputs!",EOT
+21F3 6E 79 20 69 6E 63
+21F9 6F 72 72 65 63 74
+21FF 20 69 6E 70 75 74
+2205 73 21 04
+2208 4E 6F 74 20 74 68     338  ErrInp   FCB      "Not the correct input (A,N,X,ESC)",CR,CR,EOT
+220E 65 20 63 6F 72 72
+2214 65 63 74 20 69 6E
+221A 70 75 74 20 28 41
+2220 2C 4E 2C 58 2C 45
+2226 53 43 29 0D 0D 04
+222C 53 74 75 64 65 6E     339  StudAve  FCB      "Students Average = $",EOT
+2232 74 73 20 41 76 65
+2238 72 61 67 65 20 3D
+223E 20 24 04
+2241 4D 69 6E 69 6D 75     340  StudMin  FCB      "Minimum Student Grade = $",EOT
+2247 6D 20 53 74 75 64
+224D 65 6E 74 20 47 72
+2253 61 64 65 20 3D 20
+2259 24 04
+225B 4D 61 78 69 6D 75     341  StudMax  FCB      "Maximum Student Grade = $",EOT
+2261 6D 20 53 74 75 64
+2267 65 6E 74 20 47 72
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 8
+
+
+226D 61 64 65 20 3D 20
+2273 24 04
+2275 0D 50 72 6F 67 72     342  QuitMess FCB      CR,"Program Terminated! Have a great day!",EOT
+227B 61 6D 20 54 65 72
+2281 6D 69 6E 61 74 65
+2287 64 21 20 48 61 76
+228D 65 20 61 20 67 72
+2293 65 61 74 20 64 61
+2299 79 21 04
+                           343  ;    b) variable data allocations (RMB)...
+                           344  
+0000                       345           ORG     USERDATA
+                           346  ;       Array of Grades
+0000 23 19 5F 21 07 62     347  Grades   FCB     $23, $19, $5F, $21, $07, $62, $1A, $3C, $15, $4C, $31, $52, $51, $3F, $28, $33 ; AVG = $34
+0006 1A 3C 15 4C 31 52
+000C 51 3F 28 33
+0010 (000F)                348  UsName   RMB     15      ; Variable for the user input Username.
+                           349  ;       Array to check if the inputted username matches against this data.
+001F 47 72 61 64 65 72     350  Username FCB     'G','r','a','d','e','r','0','1',EOT
+0025 30 31 04
+0028 (0001)                351  AVG      RMB     1       ; Variable to store the average of the grades.
+0029 (0001)                352  MIN      RMB     1       ; Variable to store the Minimum of the grades.
+002A (0001)                353  MAX      RMB     1       ; Variable to store the Maximum of the grades.
+002B 03                    354  UNcount  DB      3       ; To keep track of the number of user failed inputs.
+002C 37                    355  AtoF     FCB     $37     ; To convert HEX A throu F to user.         
+                           356  ****************************************************************************
+002D                       357           END
+    Cycles Counted:  537
+
+------------
+ 357 Lines
+   0 Errors
+   0 Warnings
+
+
+CalU 68HC11 Cross Assembler, ver. 2.2                                                         4/22/2021 12:33:31
+Exam 02 - Student Grade Program                                                                           Page 9
+
+
+                                            S Y M B O L   T A B L E
+
+0028 AVG                    002C AtoF                   20AB AveStart               20B7 AveStop                
+2059 Average                2099 Begin                  2123 CHA2ASC                208C CHKUN                  
+2000 CODE                   000D CR                     20A1 ChkStop                0004 EOT                    
+001B ESC                    2208 ErrInp                 2008 ErrMsg                 21B9 ErrNoMat               
+2085 Escape                 208B Fin                    2141 FinASC                 0000 Grades                 
+20A2 GrdAve                 20F8 GrdMax                 20CD GrdMin                 2142 Greet                  
+213B GrtA                   FFCD INCHAR                 206F INSERUNA               2038 InLoop                 
+207F InsrEOT                002A MAX                    0029 MIN                    2000 Main                   
+2101 MaxStart               2116 MaxStop                2063 Maximum                20D6 MinStart               
+20EB MinStop                205E Minimum                2094 Next                   FFB8 OUTA                   
+FFC7 OUTSTRG                2021 Promp                  2177 Prompt                 2068 Quit                   
+2275 QuitMess               206F Start1                 2110 StoreMax               20E5 StoreMin               
+222C StudAve                225B StudMax                2241 StudMin                21ED TMErr                  
+002B UNcount                0000 USERDATA               0010 UsName                 001F Username               
+
+  56 Symbols defined.
